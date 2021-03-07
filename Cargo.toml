@@ -1,0 +1,11 @@
+[package]
+name = "excavation-site-mercury"
+version = "0.1.0"
+authors = ["Jens Pitkanen <jens@neon.moe>"]
+edition = "2018"
+
+[dependencies]
+sdl2 = { version = "^0.34", features = ["static-link", "bundled"] }
+fontdue = "^0.4"
+fontdue-sdl2 = "^0.1"
+png = "^0.16"
