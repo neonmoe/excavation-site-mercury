@@ -32,11 +32,7 @@ impl TextPainter<'_> {
         })
     }
 
-    pub fn draw_text<RT: RenderTarget>(
-        &mut self,
-        canvas: &mut Canvas<RT>,
-        text_parts: &[(Font, f32, Color, &str)],
-    ) {
+    pub fn draw_text<RT: RenderTarget>(&mut self, canvas: &mut Canvas<RT>, text_parts: &[(Font, f32, Color, &str)]) {
         self.layout.reset(&LayoutSettings::default());
         for (font_enum, font_size, color, text) in text_parts {
             self.layout.append(
@@ -44,8 +40,6 @@ impl TextPainter<'_> {
                 &TextStyle::with_user_data(text, *font_size, *font_enum as usize, *color),
             );
         }
-        let _ = self
-            .font_texture
-            .draw_text(canvas, &self.fonts, self.layout.glyphs());
+        let _ = self.font_texture.draw_text(canvas, &self.fonts, self.layout.glyphs());
     }
 }

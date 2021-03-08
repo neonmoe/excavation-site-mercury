@@ -9,6 +9,9 @@ pub use text_painter::{Font, TextPainter};
 mod tile_painter;
 pub use tile_painter::{TileGraphic, TilePainter, TILE_STRIDE};
 
+mod level;
+pub use level::Level;
+
 mod dungeon;
 pub use dungeon::Dungeon;
 
@@ -26,7 +29,11 @@ pub fn main() {
     let texture_creator = canvas.texture_creator();
     let mut text_painter = TextPainter::new(&texture_creator).unwrap();
     let mut tile_painter = TilePainter::new(&texture_creator).unwrap();
-    let mut dungeon = Dungeon::new();
+    let dungeon = if let Ok(save) = std::fs::read("testingsave.bin") {
+        Dungeon::from_bytes(&save).unwrap()
+    } else {
+        Dungeon::new(1234)
+    };
 
     let mut frame_times = Vec::new();
     let mut event_pump = sdl_context.event_pump().unwrap();
@@ -43,19 +50,18 @@ pub fn main() {
         }
 
         let mut fts = frame_times.iter();
-        let delta_seconds =
-            if let (Some(latest), Some(previous)) = (fts.nth_back(0), fts.nth_back(0)) {
-                let frame_duration: Duration = *latest - *previous;
-                frame_duration.as_secs_f32()
-            } else {
-                0.01667
-            };
-        dungeon.update(delta_seconds);
+        let delta_seconds = if let (Some(latest), Some(previous)) = (fts.nth_back(0), fts.nth_back(0)) {
+            let frame_duration: Duration = *latest - *previous;
+            frame_duration.as_secs_f32()
+        } else {
+            0.01667
+        };
+        dungeon.level().animate(delta_seconds);
 
         canvas.set_draw_color(Color::RGB(0x44, 0x44, 0x44));
         canvas.clear();
 
-        dungeon.draw(&mut canvas, &mut tile_painter);
+        dungeon.level().draw(&mut canvas, &mut tile_painter);
         tile_painter.draw_tile_shadowed(
             &mut canvas,
             TileGraphic::Player,
@@ -64,7 +70,7 @@ pub fn main() {
             false,
             false,
         );
-        dungeon.draw_shadows(&mut canvas, &mut tile_painter);
+        dungeon.level().draw_shadows(&mut canvas, &mut tile_painter);
 
         let color = Color::RGB(0xFF, 0xFF, 0x88);
         let title = (Font::RegularUi, 28.0, color, "Excavation Site Mercury\n");
