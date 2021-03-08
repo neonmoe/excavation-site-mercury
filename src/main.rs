@@ -25,7 +25,7 @@ pub fn main() {
     let mut canvas = window.into_canvas().present_vsync().build().unwrap();
     let texture_creator = canvas.texture_creator();
     let mut text_painter = TextPainter::new(&texture_creator).unwrap();
-    let tile_painter = TilePainter::new(&texture_creator).unwrap();
+    let mut tile_painter = TilePainter::new(&texture_creator).unwrap();
     let dungeon = Dungeon::new();
 
     let mut frame_times = Vec::new();
@@ -42,15 +42,19 @@ pub fn main() {
             }
         }
 
+        canvas.set_draw_color(Color::RGB(0x44, 0x44, 0x44));
         canvas.clear();
 
-        dungeon.draw(&mut canvas, &tile_painter);
-        tile_painter.draw_tile(
+        dungeon.draw(&mut canvas, &mut tile_painter);
+        tile_painter.draw_tile_shadowed(
             &mut canvas,
             TileGraphic::Player,
             5 * TILE_STRIDE,
-            5 * TILE_STRIDE,
+            6 * TILE_STRIDE - 32,
+            false,
+            false,
         );
+        dungeon.draw_shadows(&mut canvas, &mut tile_painter);
 
         let color = Color::RGB(0xFF, 0xFF, 0x88);
         let title = (Font::RegularUi, 28.0, color, "Excavation Site Mercury\n");
