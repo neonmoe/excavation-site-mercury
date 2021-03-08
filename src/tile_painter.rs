@@ -22,6 +22,12 @@ pub enum TileGraphic {
     ShadowTopLeft,
     CornerShadowTopLeft,
     TileHighlight,
+    DoorClosed,
+    DoorOpening,
+    DoorOpen,
+    SideDoorClosed,
+    SideDoorOpening,
+    SideDoorOpen,
 }
 
 #[derive(Debug)]
@@ -110,7 +116,7 @@ impl TilePainter<'_> {
             TILE_HEIGHT,
         );
         let dst_rect = Rect::new(x, y, TILE_WIDTH, TILE_HEIGHT);
-        let shadow_dst_rect = Rect::new(x + 4, y + 2, TILE_WIDTH, TILE_HEIGHT - 3);
+        let shadow_dst_rect = Rect::new(x + 4, y - 2, TILE_WIDTH, TILE_HEIGHT);
         let _ = canvas.copy_ex(
             &self.shadow_tileset,
             src_rect,

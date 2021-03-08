@@ -26,7 +26,7 @@ pub fn main() {
     let texture_creator = canvas.texture_creator();
     let mut text_painter = TextPainter::new(&texture_creator).unwrap();
     let mut tile_painter = TilePainter::new(&texture_creator).unwrap();
-    let dungeon = Dungeon::new();
+    let mut dungeon = Dungeon::new();
 
     let mut frame_times = Vec::new();
     let mut event_pump = sdl_context.event_pump().unwrap();
@@ -42,6 +42,16 @@ pub fn main() {
             }
         }
 
+        let mut fts = frame_times.iter();
+        let delta_seconds =
+            if let (Some(latest), Some(previous)) = (fts.nth_back(0), fts.nth_back(0)) {
+                let frame_duration: Duration = *latest - *previous;
+                frame_duration.as_secs_f32()
+            } else {
+                0.01667
+            };
+        dungeon.update(delta_seconds);
+
         canvas.set_draw_color(Color::RGB(0x44, 0x44, 0x44));
         canvas.clear();
 
@@ -50,7 +60,7 @@ pub fn main() {
             &mut canvas,
             TileGraphic::Player,
             5 * TILE_STRIDE,
-            6 * TILE_STRIDE - 32,
+            6 * TILE_STRIDE - 64 / 3,
             false,
             false,
         );
