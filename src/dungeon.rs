@@ -1,25 +1,41 @@
 // TODO: DungeonEvents (and DungeonSaves) should be versioned.
 
-use crate::Level;
+use crate::{Fighter, Level, TileGraphic};
 use rand_core::SeedableRng;
 use rand_pcg::Pcg32;
 use serde::{Deserialize, Serialize};
 
 /// Messages that cause things to happen in the Dungeon.
 #[derive(Clone, Copy, Serialize, Deserialize)]
-pub enum DungeonEvent {}
+pub enum DungeonEvent {
+    MoveUp,
+    MoveDown,
+    MoveLeft,
+    MoveRight,
+    ProcessTurn,
+}
 
 #[derive(Clone, PartialEq, Debug)]
 struct DungeonState {
     rng: Pcg32,
     level: Level,
+    fighters: Vec<Fighter>,
 }
 
 impl DungeonState {
     pub fn new(seed: u64) -> DungeonState {
         let mut rng = Pcg32::seed_from_u64(seed);
         let level = Level::new(&mut rng);
-        DungeonState { rng, level }
+        let mut fighters = Vec::new();
+        fighters.push(Fighter::new(TileGraphic::Player, 4, 4));
+        DungeonState { rng, level, fighters }
+    }
+
+    pub fn move_player(&mut self, dx: i32, dy: i32) {
+        let mut player = Fighter::dummy();
+        std::mem::swap(&mut player, &mut self.fighters[0]);
+        player.step(dx, dy, &mut self.fighters, &mut self.level);
+        std::mem::swap(&mut self.fighters[0], &mut player);
     }
 }
 
@@ -76,14 +92,26 @@ impl Dungeon {
         self.apply_event_to_state(event);
         debug_assert_eq!(state_after_event, self.state);
 
+        // Finally, register it to the event list.
         self.events.push(event);
     }
 
     fn apply_event_to_state(&mut self, event: DungeonEvent) {
-        match event {}
+        use DungeonEvent::*;
+        match event {
+            MoveUp => self.state.move_player(0, -1),
+            MoveDown => self.state.move_player(0, 1),
+            MoveLeft => self.state.move_player(-1, 0),
+            MoveRight => self.state.move_player(1, 0),
+            ProcessTurn => {}
+        }
     }
 
     pub fn level(&self) -> &Level {
         &self.state.level
+    }
+
+    pub fn fighters(&self) -> &[Fighter] {
+        &self.state.fighters
     }
 }

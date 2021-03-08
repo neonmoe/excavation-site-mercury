@@ -8,7 +8,7 @@ const TILE_COLUMNS: i32 = 512 / TILE_STRIDE;
 const TILE_WIDTH: u32 = TILE_STRIDE as u32;
 const TILE_HEIGHT: u32 = TILE_STRIDE as u32;
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum TileGraphic {
     Ground,
     WallTop,
@@ -26,6 +26,15 @@ pub enum TileGraphic {
     SideDoorClosed,
     SideDoorOpening,
     SideDoorOpen,
+}
+
+impl TileGraphic {
+    pub const fn is_above(self) -> bool {
+        match self {
+            TileGraphic::WallTop => true,
+            _ => false,
+        }
+    }
 }
 
 pub struct TilePainter<'r> {

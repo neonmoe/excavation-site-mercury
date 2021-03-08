@@ -10,10 +10,13 @@ mod tile_painter;
 pub use tile_painter::{TileGraphic, TilePainter, TILE_STRIDE};
 
 mod level;
-pub use level::Level;
+pub use level::{Level, Terrain};
 
 mod dungeon;
-pub use dungeon::Dungeon;
+pub use dungeon::{Dungeon, DungeonEvent};
+
+mod fighter;
+pub use fighter::Fighter;
 
 pub fn main() {
     let sdl_context = sdl2::init().unwrap();
@@ -29,7 +32,7 @@ pub fn main() {
     let texture_creator = canvas.texture_creator();
     let mut text_painter = TextPainter::new(&texture_creator).unwrap();
     let mut tile_painter = TilePainter::new(&texture_creator).unwrap();
-    let dungeon = if let Ok(save) = std::fs::read("testingsave.bin") {
+    let mut dungeon = if let Ok(save) = std::fs::read("testingsave.bin") {
         Dungeon::from_bytes(&save).unwrap()
     } else {
         Dungeon::new(1234)
@@ -45,6 +48,21 @@ pub fn main() {
                     keycode: Some(Keycode::Escape),
                     ..
                 } => break 'running,
+                Event::KeyDown {
+                    keycode: Some(keycode), ..
+                } => {
+                    let event = match keycode {
+                        Keycode::W | Keycode::K | Keycode::Up => Some(DungeonEvent::MoveUp),
+                        Keycode::S | Keycode::J | Keycode::Down => Some(DungeonEvent::MoveDown),
+                        Keycode::A | Keycode::H | Keycode::Left => Some(DungeonEvent::MoveLeft),
+                        Keycode::D | Keycode::L | Keycode::Right => Some(DungeonEvent::MoveRight),
+                        _ => None,
+                    };
+                    if let Some(event) = event {
+                        dungeon.run_event(event);
+                        dungeon.run_event(DungeonEvent::ProcessTurn);
+                    }
+                }
                 _ => {}
             }
         }
@@ -61,15 +79,11 @@ pub fn main() {
         canvas.set_draw_color(Color::RGB(0x44, 0x44, 0x44));
         canvas.clear();
 
-        dungeon.level().draw(&mut canvas, &mut tile_painter);
-        tile_painter.draw_tile_shadowed(
-            &mut canvas,
-            TileGraphic::Player,
-            5 * TILE_STRIDE,
-            6 * TILE_STRIDE - 64 / 3,
-            false,
-            false,
-        );
+        dungeon.level().draw(&mut canvas, &mut tile_painter, false);
+        for fighter in dungeon.fighters() {
+            fighter.draw(&mut canvas, &mut tile_painter);
+        }
+        dungeon.level().draw(&mut canvas, &mut tile_painter, true);
         dungeon.level().draw_shadows(&mut canvas, &mut tile_painter);
 
         let color = Color::RGB(0xFF, 0xFF, 0x88);

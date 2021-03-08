@@ -9,12 +9,22 @@ const LEVEL_WIDTH: usize = 128;
 const LEVEL_HEIGHT: usize = 128;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
-enum Terrain {
+pub enum Terrain {
     Empty,
     Floor,
     Wall,
     Door,
     DoorOpen,
+}
+
+impl Terrain {
+    pub const fn unwalkable(self) -> bool {
+        match self {
+            Terrain::Wall => true,
+            Terrain::Door => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Default, Clone, Debug)]
@@ -80,8 +90,16 @@ impl Level {
         if x >= 0 && x < LEVEL_WIDTH as i32 && y >= 0 && y < LEVEL_HEIGHT as i32 {
             if let Terrain::Door = self.terrain[x as usize + y as usize * LEVEL_WIDTH] {
                 self.terrain[x as usize + y as usize * LEVEL_WIDTH] = Terrain::DoorOpen;
-                self.animation_state.borrow_mut().door_openings.insert((x, y), 0.5);
+                self.animation_state.borrow_mut().door_openings.insert((x, y), 0.066);
             }
+        }
+    }
+
+    pub fn get_terrain(&self, x: i32, y: i32) -> Terrain {
+        if x < 0 || y < 0 || x >= LEVEL_WIDTH as i32 || y >= LEVEL_HEIGHT as i32 {
+            Terrain::Empty
+        } else {
+            self.terrain[x as usize + y as usize * LEVEL_WIDTH]
         }
     }
 
@@ -93,7 +111,7 @@ impl Level {
         });
     }
 
-    pub fn draw<RT: RenderTarget>(&self, canvas: &mut Canvas<RT>, tile_painter: &mut TilePainter) {
+    pub fn draw<RT: RenderTarget>(&self, canvas: &mut Canvas<RT>, tile_painter: &mut TilePainter, above_layer: bool) {
         let offset_x = 0;
         let offset_y = 0;
         let (screen_width, screen_height) = canvas.output_size().unwrap();
@@ -110,21 +128,14 @@ impl Level {
                 const FLAG_FLIP_H: u32 = 1 << 2; // Flip horizontally
                 const FLAG_FLIP_V: u32 = 1 << 3; // Flip vertically
                 const FLAG_FLIP_BOTH: u32 = FLAG_FLIP_H | FLAG_FLIP_V;
-                let get_terrain = |x: i32, y: i32| {
-                    if x < 0 || y < 0 || x >= LEVEL_WIDTH as i32 || y >= LEVEL_HEIGHT as i32 {
-                        Terrain::Empty
-                    } else {
-                        self.terrain[x as usize + y as usize * LEVEL_WIDTH]
-                    }
-                };
 
                 let tiles: &[(TileGraphic, i32, i32, u32)] = match (
-                    get_terrain(tile_x, tile_y),     // tile at cursor
-                    get_terrain(tile_x, tile_y + 1), // tile below cursor
-                    get_terrain(tile_x + 1, tile_y), // tile right of cursor
-                    get_terrain(tile_x, tile_y - 1), // tile above cursor
-                    get_terrain(tile_x - 1, tile_y), // tile left of cursor
-                    get_terrain(tile_x, tile_y + 2), // tile two tiles below cursor
+                    self.get_terrain(tile_x, tile_y),     // tile at cursor
+                    self.get_terrain(tile_x, tile_y + 1), // tile below cursor
+                    self.get_terrain(tile_x + 1, tile_y), // tile right of cursor
+                    self.get_terrain(tile_x, tile_y - 1), // tile above cursor
+                    self.get_terrain(tile_x - 1, tile_y), // tile left of cursor
+                    self.get_terrain(tile_x, tile_y + 2), // tile two tiles below cursor
                 ) {
                     // Closed doors
                     (Terrain::Door, _, Terrain::Wall, _, Terrain::Wall, _) => &[
@@ -182,20 +193,22 @@ impl Level {
                     (_, _, _, _, _, _) => &[],
                 };
 
-                for (tile, x_offset, y_offset, flags) in tiles {
+                for (mut tile, x_offset, mut y_offset, mut flags) in tiles.into_iter() {
+                    if above_layer != tile.is_above() {
+                        continue;
+                    }
+
                     // Animate if needed
                     let key = (tile_x, tile_y);
-                    let tile = if *tile == TileGraphic::DoorOpen
+                    if tile == TileGraphic::DoorOpen && self.animation_state.borrow().door_openings.contains_key(&key) {
+                        tile = TileGraphic::DoorOpening;
+                    } else if tile == TileGraphic::SideDoorOpen
                         && self.animation_state.borrow().door_openings.contains_key(&key)
                     {
-                        TileGraphic::DoorOpening
-                    } else if *tile == TileGraphic::SideDoorOpen
-                        && self.animation_state.borrow().door_openings.contains_key(&key)
-                    {
-                        TileGraphic::SideDoorOpening
-                    } else {
-                        *tile
-                    };
+                        tile = TileGraphic::SideDoorOpening;
+                        y_offset = -TILE_STRIDE / 3;
+                        flags |= FLAG_SHDW;
+                    }
 
                     // Draw the tile
                     let x = x as i32 * TILE_STRIDE + x_offset;
