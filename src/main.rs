@@ -18,7 +18,12 @@ pub use dungeon::{Dungeon, DungeonEvent};
 mod fighter;
 pub use fighter::Fighter;
 
+static QUICK_SAVE_FILE: &str = "excavation-site-mercury-quicksave.bin";
+
 pub fn main() {
+    #[cfg(feature = "env_logger")]
+    env_logger::init();
+    let initialization_start = Instant::now();
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
     let window = video_subsystem
@@ -32,11 +37,8 @@ pub fn main() {
     let texture_creator = canvas.texture_creator();
     let mut text_painter = TextPainter::new(&texture_creator).unwrap();
     let mut tile_painter = TilePainter::new(&texture_creator).unwrap();
-    let mut dungeon = if let Ok(save) = std::fs::read("testingsave.bin") {
-        Dungeon::from_bytes(&save).unwrap()
-    } else {
-        Dungeon::new(1234)
-    };
+    let mut dungeon = Dungeon::new((Instant::now() - initialization_start).subsec_nanos() as u64);
+    log::info!("Game startup took {:?}.", Instant::now() - initialization_start);
 
     let mut frame_times = Vec::new();
     let mut event_pump = sdl_context.event_pump().unwrap();
@@ -48,6 +50,38 @@ pub fn main() {
                     keycode: Some(Keycode::Escape),
                     ..
                 } => break 'running,
+                Event::KeyDown {
+                    keycode: Some(Keycode::F5),
+                    ..
+                } => {
+                    log::info!("Quicksaving game to {}...", QUICK_SAVE_FILE);
+                    match dungeon
+                        .to_bytes()
+                        .ok()
+                        .and_then(|bytes| std::fs::write(QUICK_SAVE_FILE, bytes).ok())
+                    {
+                        Some(_) => log::info!("Game quicksaved to {}!", QUICK_SAVE_FILE),
+                        None => log::error!("Failed quicksaving to {}.", QUICK_SAVE_FILE),
+                    }
+                }
+                Event::KeyDown {
+                    keycode: Some(Keycode::F9),
+                    ..
+                } => {
+                    log::info!("Loading quicksave from {}...", QUICK_SAVE_FILE);
+                    match std::fs::read(QUICK_SAVE_FILE)
+                        .ok()
+                        .and_then(|bytes| Dungeon::from_bytes(&bytes).ok())
+                    {
+                        Some(loaded_dungeon) => {
+                            dungeon = loaded_dungeon;
+                            log::info!("Quicksave loaded from {}!", QUICK_SAVE_FILE);
+                        }
+                        None => {
+                            log::error!("Error loading quicksave from {}.", QUICK_SAVE_FILE);
+                        }
+                    }
+                }
                 Event::KeyDown {
                     keycode: Some(keycode), ..
                 } => {

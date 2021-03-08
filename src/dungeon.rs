@@ -41,6 +41,7 @@ impl DungeonState {
 
 #[derive(Serialize, Deserialize)]
 pub struct DungeonSave {
+    game_version: String,
     seed: u64,
     events: Vec<DungeonEvent>,
 }
@@ -76,6 +77,7 @@ impl Dungeon {
 
     pub fn to_bytes(&self) -> Result<Vec<u8>, bincode::Error> {
         bincode::serialize(&DungeonSave {
+            game_version: format!("\r\nexcavation-site-mercury version: {}\r\n", env!("CARGO_PKG_VERSION")),
             seed: self.seed,
             events: self.events.clone(),
         })
