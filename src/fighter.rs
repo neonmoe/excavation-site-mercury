@@ -1,4 +1,4 @@
-use crate::{Level, Terrain, TileGraphic, TilePainter, TILE_STRIDE};
+use crate::{Camera, Level, Terrain, TileGraphic, TilePainter, TILE_STRIDE};
 use sdl2::render::{Canvas, RenderTarget};
 use std::cell::RefCell;
 use std::f32::consts::PI;
@@ -113,14 +113,14 @@ impl Fighter {
         }
     }
 
-    pub fn draw<RT: RenderTarget>(&self, canvas: &mut Canvas<RT>, tile_painter: &mut TilePainter) {
+    pub fn draw<RT: RenderTarget>(&self, canvas: &mut Canvas<RT>, tile_painter: &mut TilePainter, camera: &Camera) {
         if let Some(tile) = self.tile {
             let animation = self.animation.borrow();
             tile_painter.draw_tile_shadowed_ex(
                 canvas,
                 tile,
-                self.x * TILE_STRIDE + animation.offset_x,
-                self.y * TILE_STRIDE - TILE_STRIDE / 2 + animation.offset_y,
+                self.x * TILE_STRIDE + animation.offset_x - camera.x,
+                self.y * TILE_STRIDE - TILE_STRIDE / 2 + animation.offset_y - camera.y,
                 (TILE_STRIDE + animation.width_inc) as u32,
                 (TILE_STRIDE + animation.height_inc) as u32,
                 animation.flip_h,

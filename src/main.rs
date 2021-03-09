@@ -18,8 +18,12 @@ pub use dungeon::{Dungeon, DungeonEvent};
 mod fighter;
 pub use fighter::Fighter;
 
+mod camera;
+pub use camera::Camera;
+
 static QUICK_SAVE_FILE: &str = "excavation-site-mercury-quicksave.bin";
 
+// TODO: Catch panics and show a message box before crashing?
 pub fn main() {
     #[cfg(feature = "env_logger")]
     env_logger::init();
@@ -38,6 +42,7 @@ pub fn main() {
     let mut text_painter = TextPainter::new(&texture_creator).unwrap();
     let mut tile_painter = TilePainter::new(&texture_creator).unwrap();
     let mut dungeon = Dungeon::new((Instant::now() - initialization_start).subsec_nanos() as u64);
+    let mut camera = Camera::new();
     log::info!("Game startup took {:?}.", Instant::now() - initialization_start);
 
     let mut frame_times = Vec::new();
@@ -108,20 +113,26 @@ pub fn main() {
         } else {
             0.01667
         };
+
         dungeon.level().animate(delta_seconds);
         for fighter in dungeon.fighters() {
             fighter.animate(delta_seconds);
         }
 
+        let (width, height) = canvas.output_size().unwrap();
+        let camera_target_x = dungeon.player().x * TILE_STRIDE - width as i32 / 2 + TILE_STRIDE / 2;
+        let camera_target_y = dungeon.player().y * TILE_STRIDE - height as i32 / 2;
+        camera.update(delta_seconds, camera_target_x, camera_target_y);
+
         canvas.set_draw_color(Color::RGB(0x44, 0x44, 0x44));
         canvas.clear();
 
-        dungeon.level().draw(&mut canvas, &mut tile_painter, false);
+        dungeon.level().draw(&mut canvas, &mut tile_painter, &camera, false);
         for fighter in dungeon.fighters() {
-            fighter.draw(&mut canvas, &mut tile_painter);
+            fighter.draw(&mut canvas, &mut tile_painter, &camera);
         }
-        dungeon.level().draw(&mut canvas, &mut tile_painter, true);
-        dungeon.level().draw_shadows(&mut canvas, &mut tile_painter);
+        dungeon.level().draw_shadows(&mut canvas, &mut tile_painter, &camera);
+        dungeon.level().draw(&mut canvas, &mut tile_painter, &camera, true);
 
         let color = Color::RGB(0xFF, 0xFF, 0x88);
         let title = (Font::RegularUi, 28.0, color, "Excavation Site Mercury\n");

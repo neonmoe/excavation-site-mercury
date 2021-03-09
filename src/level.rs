@@ -1,4 +1,4 @@
-use crate::{TileGraphic, TilePainter, TILE_STRIDE};
+use crate::{Camera, TileGraphic, TilePainter, TILE_STRIDE};
 use rand_core::RngCore;
 use rand_pcg::Pcg32;
 use sdl2::render::{Canvas, RenderTarget};
@@ -111,9 +111,15 @@ impl Level {
         });
     }
 
-    pub fn draw<RT: RenderTarget>(&self, canvas: &mut Canvas<RT>, tile_painter: &mut TilePainter, above_layer: bool) {
-        let offset_x = 0;
-        let offset_y = 0;
+    pub fn draw<RT: RenderTarget>(
+        &self,
+        canvas: &mut Canvas<RT>,
+        tile_painter: &mut TilePainter,
+        camera: &Camera,
+        above_layer: bool,
+    ) {
+        let offset_x = camera.x / TILE_STRIDE;
+        let offset_y = camera.y / TILE_STRIDE;
         let (screen_width, screen_height) = canvas.output_size().unwrap();
         let tiles_x = screen_width as i32 / TILE_STRIDE + 1;
         let tiles_y = screen_height as i32 / TILE_STRIDE + 1;
@@ -211,8 +217,8 @@ impl Level {
                     }
 
                     // Draw the tile
-                    let x = x as i32 * TILE_STRIDE + x_offset;
-                    let y = y as i32 * TILE_STRIDE + y_offset;
+                    let x = tile_x as i32 * TILE_STRIDE + x_offset - camera.x;
+                    let y = tile_y as i32 * TILE_STRIDE + y_offset - camera.y;
                     let flip_h = (flags & FLAG_FLIP_H) != 0;
                     let flip_v = (flags & FLAG_FLIP_V) != 0;
                     if (flags & FLAG_SHDW) != 0 {
@@ -225,9 +231,14 @@ impl Level {
         }
     }
 
-    pub fn draw_shadows<RT: RenderTarget>(&self, canvas: &mut Canvas<RT>, tile_painter: &mut TilePainter) {
-        let offset_x = 0;
-        let offset_y = 0;
+    pub fn draw_shadows<RT: RenderTarget>(
+        &self,
+        canvas: &mut Canvas<RT>,
+        tile_painter: &mut TilePainter,
+        camera: &Camera,
+    ) {
+        let offset_x = camera.x / TILE_STRIDE;
+        let offset_y = camera.y / TILE_STRIDE;
         let (screen_width, screen_height) = canvas.output_size().unwrap();
         let tiles_x = screen_width as i32 / TILE_STRIDE + 1;
         let tiles_y = screen_height as i32 / TILE_STRIDE + 1;
@@ -261,8 +272,8 @@ impl Level {
                 };
 
                 for tile in tiles {
-                    let x = x as i32 * TILE_STRIDE;
-                    let y = y as i32 * TILE_STRIDE;
+                    let x = tile_x as i32 * TILE_STRIDE - camera.x;
+                    let y = tile_y as i32 * TILE_STRIDE - camera.y;
                     tile_painter.draw_tile(canvas, *tile, x, y, false, false);
                 }
             }

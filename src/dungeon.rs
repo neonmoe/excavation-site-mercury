@@ -116,4 +116,8 @@ impl Dungeon {
     pub fn fighters(&self) -> &[Fighter] {
         &self.state.fighters
     }
+
+    pub fn player(&self) -> &Fighter {
+        &self.state.fighters[0]
+    }
 }
