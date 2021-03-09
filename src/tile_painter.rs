@@ -76,6 +76,26 @@ impl TilePainter<'_> {
         })
     }
 
+    pub fn draw_tile_shadowed_ex<RT: RenderTarget>(
+        &mut self,
+        canvas: &mut Canvas<RT>,
+        tile: TileGraphic,
+        x: i32,
+        y: i32,
+        width: u32,
+        height: u32,
+        flip_h: bool,
+        flip_v: bool,
+    ) {
+        let tile_x = tile as usize as i32 % TILE_COLUMNS;
+        let tile_y = tile as usize as i32 / TILE_COLUMNS;
+        let src_rect = Rect::new(tile_x * TILE_STRIDE, tile_y * TILE_STRIDE, TILE_WIDTH, TILE_HEIGHT);
+        let dst_rect = Rect::new(x, y, width, height);
+        let shdw_dst_rect = Rect::new(x + 4, y - 2, width, height);
+        let _ = canvas.copy_ex(&self.shadow_tileset, src_rect, shdw_dst_rect, 0.0, None, flip_h, flip_v);
+        let _ = canvas.copy_ex(&self.tileset, src_rect, dst_rect, 0.0, None, flip_h, flip_v);
+    }
+
     pub fn draw_tile_shadowed<RT: RenderTarget>(
         &mut self,
         canvas: &mut Canvas<RT>,

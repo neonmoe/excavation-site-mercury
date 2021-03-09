@@ -109,6 +109,9 @@ pub fn main() {
             0.01667
         };
         dungeon.level().animate(delta_seconds);
+        for fighter in dungeon.fighters() {
+            fighter.animate(delta_seconds);
+        }
 
         canvas.set_draw_color(Color::RGB(0x44, 0x44, 0x44));
         canvas.clear();
