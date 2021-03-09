@@ -1,6 +1,6 @@
 use png::{BitDepth, ColorType};
 use sdl2::pixels::PixelFormatEnum;
-use sdl2::rect::Rect;
+use sdl2::rect::{Point, Rect};
 use sdl2::render::{BlendMode, Canvas, RenderTarget, Texture, TextureCreator, TextureValueError, UpdateTextureError};
 
 pub const TILE_STRIDE: i32 = 64;
@@ -26,6 +26,10 @@ pub enum TileGraphic {
     SideDoorClosed,
     SideDoorOpening,
     SideDoorOpen,
+    HealthEmpty,
+    HealthFull,
+    HealthMedium,
+    HealthLow,
 }
 
 impl TileGraphic {
@@ -90,9 +94,13 @@ impl TilePainter<'_> {
         let tile_x = tile as usize as i32 % TILE_COLUMNS;
         let tile_y = tile as usize as i32 / TILE_COLUMNS;
         let src_rect = Rect::new(tile_x * TILE_STRIDE, tile_y * TILE_STRIDE, TILE_WIDTH, TILE_HEIGHT);
-        let dst_rect = Rect::new(x, y, width, height);
         let shdw_dst_rect = Rect::new(x + 4, y - 2, width, height);
         let _ = canvas.copy_ex(&self.shadow_tileset, src_rect, shdw_dst_rect, 0.0, None, flip_h, flip_v);
+        let shdw_dst_rect = Rect::new(x - 1, y, width, height);
+        let _ = canvas.copy_ex(&self.shadow_tileset, src_rect, shdw_dst_rect, 0.0, None, flip_h, flip_v);
+        let shdw_dst_rect = Rect::new(x, y + 1, width, height);
+        let _ = canvas.copy_ex(&self.shadow_tileset, src_rect, shdw_dst_rect, 0.0, None, flip_h, flip_v);
+        let dst_rect = Rect::new(x, y, width, height);
         let _ = canvas.copy_ex(&self.tileset, src_rect, dst_rect, 0.0, None, flip_h, flip_v);
     }
 
@@ -105,13 +113,23 @@ impl TilePainter<'_> {
         flip_h: bool,
         flip_v: bool,
     ) {
+        self.draw_tile_shadowed_ex(canvas, tile, x, y, TILE_WIDTH, TILE_HEIGHT, flip_h, flip_v);
+    }
+
+    pub fn draw_tile_rotated<RT: RenderTarget>(
+        &mut self,
+        canvas: &mut Canvas<RT>,
+        tile: TileGraphic,
+        x: i32,
+        y: i32,
+        angle: f64,
+        around: Point,
+    ) {
         let tile_x = tile as usize as i32 % TILE_COLUMNS;
         let tile_y = tile as usize as i32 / TILE_COLUMNS;
         let src_rect = Rect::new(tile_x * TILE_STRIDE, tile_y * TILE_STRIDE, TILE_WIDTH, TILE_HEIGHT);
         let dst_rect = Rect::new(x, y, TILE_WIDTH, TILE_HEIGHT);
-        let shdw_dst_rect = Rect::new(x + 4, y - 2, TILE_WIDTH, TILE_HEIGHT);
-        let _ = canvas.copy_ex(&self.shadow_tileset, src_rect, shdw_dst_rect, 0.0, None, flip_h, flip_v);
-        let _ = canvas.copy_ex(&self.tileset, src_rect, dst_rect, 0.0, None, flip_h, flip_v);
+        let _ = canvas.copy_ex(&self.tileset, src_rect, dst_rect, angle, Some(around), false, false);
     }
 
     pub fn draw_tile<RT: RenderTarget>(

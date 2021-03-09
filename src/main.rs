@@ -1,25 +1,27 @@
+use fontdue::layout::LayoutSettings;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
 use std::time::{Duration, Instant};
 
 mod text_painter;
-pub use text_painter::{Font, TextPainter};
-
+pub use text_painter::{Font, Text, TextPainter};
 mod tile_painter;
 pub use tile_painter::{TileGraphic, TilePainter, TILE_STRIDE};
-
 mod level;
 pub use level::{Level, Terrain};
-
 mod dungeon;
 pub use dungeon::{Dungeon, DungeonEvent};
-
 mod fighter;
 pub use fighter::Fighter;
-
 mod camera;
 pub use camera::Camera;
+pub mod stats;
+pub use stats::Stats;
+mod game_log;
+pub use game_log::GameLog;
+mod localization;
+pub use localization::{Language, LocalizableString, Name};
 
 static QUICK_SAVE_FILE: &str = "excavation-site-mercury-quicksave.bin";
 
@@ -43,6 +45,7 @@ pub fn main() {
     let mut tile_painter = TilePainter::new(&texture_creator).unwrap();
     let mut dungeon = Dungeon::new((Instant::now() - initialization_start).subsec_nanos() as u64);
     let mut camera = Camera::new();
+    let mut show_debug = false;
     log::info!("Game startup took {:?}.", Instant::now() - initialization_start);
 
     let mut frame_times = Vec::new();
@@ -55,6 +58,7 @@ pub fn main() {
                     keycode: Some(Keycode::Escape),
                     ..
                 } => break 'running,
+
                 Event::KeyDown {
                     keycode: Some(Keycode::F5),
                     ..
@@ -69,6 +73,7 @@ pub fn main() {
                         None => log::error!("Failed quicksaving to {}.", QUICK_SAVE_FILE),
                     }
                 }
+
                 Event::KeyDown {
                     keycode: Some(Keycode::F9),
                     ..
@@ -87,6 +92,12 @@ pub fn main() {
                         }
                     }
                 }
+
+                Event::KeyDown {
+                    keycode: Some(Keycode::F3),
+                    ..
+                } => show_debug = !show_debug,
+
                 Event::KeyDown {
                     keycode: Some(keycode), ..
                 } => {
@@ -121,24 +132,36 @@ pub fn main() {
 
         let (width, height) = canvas.output_size().unwrap();
         let camera_target_x = dungeon.player().x * TILE_STRIDE - width as i32 / 2 + TILE_STRIDE / 2;
-        let camera_target_y = dungeon.player().y * TILE_STRIDE - height as i32 / 2;
+        let camera_target_y = dungeon.player().y * TILE_STRIDE - (height as i32 - 150) / 2;
         camera.update(delta_seconds, camera_target_x, camera_target_y);
 
         canvas.set_draw_color(Color::RGB(0x44, 0x44, 0x44));
         canvas.clear();
 
-        dungeon.level().draw(&mut canvas, &mut tile_painter, &camera, false);
+        dungeon
+            .level()
+            .draw(&mut canvas, &mut tile_painter, &camera, false, show_debug);
         for fighter in dungeon.fighters() {
-            fighter.draw(&mut canvas, &mut tile_painter, &camera);
+            fighter.draw(&mut canvas, &mut tile_painter, &camera, true, show_debug);
+        }
+        for fighter in dungeon.fighters() {
+            fighter.draw(&mut canvas, &mut tile_painter, &camera, false, show_debug);
         }
         dungeon.level().draw_shadows(&mut canvas, &mut tile_painter, &camera);
-        dungeon.level().draw(&mut canvas, &mut tile_painter, &camera, true);
+        dungeon
+            .level()
+            .draw(&mut canvas, &mut tile_painter, &camera, true, show_debug);
 
-        let color = Color::RGB(0xFF, 0xFF, 0x88);
-        let title = (Font::RegularUi, 28.0, color, "Excavation Site Mercury\n");
-        let fps = frame_times.len();
-        let fps = (Font::RegularUi, 18.0, color, &*format!("FPS: {}", fps));
-        text_painter.draw_text(&mut canvas, &[title, fps]);
+        dungeon.log().draw_messages(&mut canvas, &mut text_painter);
+
+        if show_debug {
+            let color = Color::RGB(0xFF, 0xFF, 0x88);
+            let title = Text(Font::RegularUi, 28.0, color, String::from("Excavation Site Mercury\n"));
+            let fps = frame_times.len();
+            let fps = Text(Font::RegularUi, 18.0, color, format!("FPS: {}", fps));
+            let layout = LayoutSettings::default();
+            text_painter.draw_text(&mut canvas, &layout, &[title, fps]);
+        }
 
         canvas.present();
 

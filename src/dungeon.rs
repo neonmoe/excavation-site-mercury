@@ -1,6 +1,6 @@
 // TODO: DungeonEvents (and DungeonSaves) should be versioned.
 
-use crate::{Fighter, Level, TileGraphic};
+use crate::{stats, Fighter, GameLog, Level, Name, TileGraphic};
 use rand_core::SeedableRng;
 use rand_pcg::Pcg32;
 use serde::{Deserialize, Serialize};
@@ -18,24 +18,48 @@ pub enum DungeonEvent {
 #[derive(Clone, PartialEq, Debug)]
 struct DungeonState {
     rng: Pcg32,
+    log: GameLog,
     level: Level,
     fighters: Vec<Fighter>,
+    round: u64,
 }
 
 impl DungeonState {
     pub fn new(seed: u64) -> DungeonState {
         let mut rng = Pcg32::seed_from_u64(seed);
+        let log = GameLog::new();
         let level = Level::new(&mut rng);
         let mut fighters = Vec::new();
-        fighters.push(Fighter::new(TileGraphic::Player, 4, 4));
-        DungeonState { rng, level, fighters }
+        let name = Name::UserInput(String::from("Astronaut"));
+        let name_ = Name::UserInput(String::from("Astronaut Double"));
+        fighters.push(Fighter::new(name, TileGraphic::Player, 4, 4, stats::PLAYER));
+        fighters.push(Fighter::new(name_, TileGraphic::Player, 3, 4, stats::PLAYER));
+        DungeonState {
+            rng,
+            log,
+            level,
+            fighters,
+            round: 1,
+        }
     }
 
     pub fn move_player(&mut self, dx: i32, dy: i32) {
         let mut player = Fighter::dummy();
         std::mem::swap(&mut player, &mut self.fighters[0]);
-        player.step(dx, dy, &mut self.fighters, &mut self.level);
+        player.step(
+            dx,
+            dy,
+            &mut self.fighters,
+            &mut self.level,
+            &mut self.rng,
+            &mut self.log,
+            self.round,
+        );
         std::mem::swap(&mut self.fighters[0], &mut player);
+    }
+
+    pub fn process_turn(&mut self) {
+        self.round += 1;
     }
 }
 
@@ -105,7 +129,7 @@ impl Dungeon {
             MoveDown => self.state.move_player(0, 1),
             MoveLeft => self.state.move_player(-1, 0),
             MoveRight => self.state.move_player(1, 0),
-            ProcessTurn => {}
+            ProcessTurn => self.state.process_turn(),
         }
     }
 
@@ -119,5 +143,13 @@ impl Dungeon {
 
     pub fn player(&self) -> &Fighter {
         &self.state.fighters[0]
+    }
+
+    pub fn log(&self) -> &GameLog {
+        &self.state.log
+    }
+
+    pub fn round(&self) -> u64 {
+        self.state.round
     }
 }

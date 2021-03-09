@@ -1,6 +1,8 @@
 use crate::{Camera, TileGraphic, TilePainter, TILE_STRIDE};
 use rand_core::RngCore;
 use rand_pcg::Pcg32;
+use sdl2::pixels::Color;
+use sdl2::rect::Rect;
 use sdl2::render::{Canvas, RenderTarget};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -117,17 +119,19 @@ impl Level {
         tile_painter: &mut TilePainter,
         camera: &Camera,
         above_layer: bool,
+        show_debug: bool,
     ) {
         let offset_x = camera.x / TILE_STRIDE;
         let offset_y = camera.y / TILE_STRIDE;
         let (screen_width, screen_height) = canvas.output_size().unwrap();
-        let tiles_x = screen_width as i32 / TILE_STRIDE + 1;
-        let tiles_y = screen_height as i32 / TILE_STRIDE + 1;
+        let tiles_x = screen_width as i32 / TILE_STRIDE + 2;
+        let tiles_y = screen_height as i32 / TILE_STRIDE + 2;
 
         for y in 0..tiles_y {
             let tile_y = y + offset_y;
             for x in 0..tiles_x {
                 let tile_x = x + offset_x;
+                let terrain = self.get_terrain(tile_x, tile_y);
 
                 const NO_FLAGS: u32 = 0;
                 const FLAG_SHDW: u32 = 1 << 1; // Will render with a shadow
@@ -136,7 +140,7 @@ impl Level {
                 const FLAG_FLIP_BOTH: u32 = FLAG_FLIP_H | FLAG_FLIP_V;
 
                 let tiles: &[(TileGraphic, i32, i32, u32)] = match (
-                    self.get_terrain(tile_x, tile_y),     // tile at cursor
+                    terrain,                              // tile at cursor
                     self.get_terrain(tile_x, tile_y + 1), // tile below cursor
                     self.get_terrain(tile_x + 1, tile_y), // tile right of cursor
                     self.get_terrain(tile_x, tile_y - 1), // tile above cursor
@@ -227,6 +231,16 @@ impl Level {
                         tile_painter.draw_tile(canvas, tile, x, y, flip_h, flip_v);
                     }
                 }
+
+                if show_debug && terrain.unwalkable() {
+                    canvas.set_draw_color(Color::RGB(0xCC, 0x44, 0x11));
+                    let _ = canvas.draw_rect(Rect::new(
+                        tile_x * TILE_STRIDE - camera.x,
+                        tile_y * TILE_STRIDE - camera.y,
+                        TILE_STRIDE as u32,
+                        TILE_STRIDE as u32,
+                    ));
+                }
             }
         }
     }
@@ -240,8 +254,8 @@ impl Level {
         let offset_x = camera.x / TILE_STRIDE;
         let offset_y = camera.y / TILE_STRIDE;
         let (screen_width, screen_height) = canvas.output_size().unwrap();
-        let tiles_x = screen_width as i32 / TILE_STRIDE + 1;
-        let tiles_y = screen_height as i32 / TILE_STRIDE + 1;
+        let tiles_x = screen_width as i32 / TILE_STRIDE + 2;
+        let tiles_y = screen_height as i32 / TILE_STRIDE + 2;
 
         for y in 0..tiles_y {
             let tile_y = y + offset_y;

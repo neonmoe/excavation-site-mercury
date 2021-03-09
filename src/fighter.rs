@@ -1,5 +1,11 @@
-use crate::{Camera, Level, Terrain, TileGraphic, TilePainter, TILE_STRIDE};
-use sdl2::render::{Canvas, RenderTarget};
+use crate::{
+    stats, Camera, GameLog, Level, LocalizableString, Name, Stats, Terrain, TileGraphic, TilePainter, TILE_STRIDE,
+};
+use rand_core::RngCore;
+use rand_pcg::Pcg32;
+use sdl2::pixels::Color;
+use sdl2::rect::{Point, Rect};
+use sdl2::render::{BlendMode, Canvas, RenderTarget};
 use std::cell::RefCell;
 use std::f32::consts::PI;
 
@@ -20,9 +26,11 @@ struct Animation {
 
 #[derive(Clone, Debug)]
 pub struct Fighter {
+    pub name: Name,
     pub tile: Option<TileGraphic>,
     pub x: i32,
     pub y: i32,
+    pub stats: Stats,
     animation: RefCell<Animation>,
 }
 
@@ -33,20 +41,24 @@ impl PartialEq for Fighter {
 }
 
 impl Fighter {
-    pub fn new(tile: TileGraphic, x: i32, y: i32) -> Fighter {
+    pub fn new(name: Name, tile: TileGraphic, x: i32, y: i32, stats: Stats) -> Fighter {
         Fighter {
+            name,
             tile: Some(tile),
             x,
             y,
+            stats,
             animation: RefCell::new(Animation::default()),
         }
     }
 
     pub fn dummy() -> Fighter {
         Fighter {
+            name: Name::Dummy,
             tile: None,
             x: 0,
             y: 0,
+            stats: stats::DUMMY,
             animation: RefCell::new(Animation::default()),
         }
     }
@@ -78,7 +90,16 @@ impl Fighter {
         }
     }
 
-    pub fn step(&mut self, dx: i32, dy: i32, fighters: &mut [Fighter], level: &mut Level) {
+    pub fn step(
+        &mut self,
+        dx: i32,
+        dy: i32,
+        fighters: &mut [Fighter],
+        level: &mut Level,
+        rng: &mut Pcg32,
+        log: &mut GameLog,
+        round: u64,
+    ) {
         let (new_x, new_y) = (self.x + dx, self.y + dy);
         let mut hit_something = false;
 
@@ -86,8 +107,8 @@ impl Fighter {
             .iter_mut()
             .filter(|fighter| fighter.x == new_x && fighter.y == new_y)
         {
-            println!("Hit someone: {:?}", hit_fighter);
-            hit_something = true;
+            hit_something = !hit_fighter.walkable();
+            hit_fighter.take_damage(&self, rng, log, round);
         }
 
         let hit_terrain = level.get_terrain(new_x, new_y);
@@ -102,30 +123,115 @@ impl Fighter {
         animation.move_from_x = self.x;
         animation.move_from_y = self.y;
         animation.move_progress = 1.0;
+        if dx < 0 {
+            animation.flip_h = true;
+        } else if dx > 0 {
+            animation.flip_h = false;
+        }
+
         if !hit_something {
             self.x = new_x;
             self.y = new_y;
-            if dx < 0 {
-                animation.flip_h = true;
-            } else if dx > 0 {
-                animation.flip_h = false;
-            }
         }
     }
 
-    pub fn draw<RT: RenderTarget>(&self, canvas: &mut Canvas<RT>, tile_painter: &mut TilePainter, camera: &Camera) {
-        if let Some(tile) = self.tile {
-            let animation = self.animation.borrow();
-            tile_painter.draw_tile_shadowed_ex(
-                canvas,
-                tile,
-                self.x * TILE_STRIDE + animation.offset_x - camera.x,
-                self.y * TILE_STRIDE - TILE_STRIDE / 2 + animation.offset_y - camera.y,
-                (TILE_STRIDE + animation.width_inc) as u32,
-                (TILE_STRIDE + animation.height_inc) as u32,
-                animation.flip_h,
-                false,
+    fn take_damage(&mut self, from: &Fighter, rng: &mut Pcg32, log: &mut GameLog, round: u64) {
+        let hit_roll = (rng.next_u32() % 6) as i32 + 1;
+        let modifier = from.stats.arm - self.stats.leg;
+        let hit_value = hit_roll + modifier;
+        if hit_value > 0 {
+            let damage = 1 + hit_value / 6;
+            self.stats.health = (self.stats.health - damage).max(0);
+            log.combat(
+                round,
+                LocalizableString::SomeoneAttackedSomeone {
+                    attacker: from.name.clone(),
+                    defender: self.name.clone(),
+                    damage,
+                    roll: hit_roll,
+                    attacker_arm: from.stats.arm,
+                    defender_leg: self.stats.leg,
+                },
             );
+            if self.stats.health == 0 {}
+        }
+    }
+
+    fn walkable(&self) -> bool {
+        self.stats.health == 0
+    }
+
+    pub fn draw<RT: RenderTarget>(
+        &self,
+        canvas: &mut Canvas<RT>,
+        tile_painter: &mut TilePainter,
+        camera: &Camera,
+        dead_layer: bool,
+        show_debug: bool,
+    ) {
+        if let Some(tile) = self.tile {
+            let is_dead = self.stats.health == 0;
+            if is_dead != dead_layer {
+                return;
+            }
+
+            if show_debug {
+                if is_dead {
+                    canvas.set_draw_color(Color::RGB(0x11, 0x55, 0x11));
+                } else {
+                    canvas.set_draw_color(Color::RGB(0x44, 0xCC, 0x11));
+                }
+                let _ = canvas.draw_rect(Rect::new(
+                    self.x * TILE_STRIDE - camera.x,
+                    self.y * TILE_STRIDE - camera.y,
+                    TILE_STRIDE as u32,
+                    TILE_STRIDE as u32,
+                ));
+            }
+
+            let animation = self.animation.borrow();
+            let x = self.x * TILE_STRIDE - camera.x + animation.offset_x;
+            let mut y = self.y * TILE_STRIDE - camera.y + animation.offset_y;
+            if is_dead {
+                tile_painter.draw_tile_rotated(canvas, tile, x, y, 270.0, Point::new(TILE_STRIDE / 2, TILE_STRIDE / 2));
+            } else {
+                y -= TILE_STRIDE / 4;
+                tile_painter.draw_tile_shadowed_ex(
+                    canvas,
+                    tile,
+                    x,
+                    y,
+                    (TILE_STRIDE + animation.width_inc) as u32,
+                    (TILE_STRIDE + animation.height_inc) as u32,
+                    animation.flip_h,
+                    false,
+                );
+            }
+
+            let gap = (4 - self.stats.max_health / 3).max(1);
+            let health_area_width = TILE_STRIDE - 20 + self.stats.max_health * 3;
+            let health_rect_width = health_area_width / self.stats.max_health;
+            canvas.set_blend_mode(BlendMode::Blend);
+            for i in 0..self.stats.max_health {
+                if i >= self.stats.health {
+                    canvas.set_draw_color(Color::RGBA(0xAA, 0xAA, 0xAA, 0xAA));
+                } else if self.stats.health <= self.stats.max_health / 3 {
+                    canvas.set_draw_color(Color::RGB(0xCC, 0x33, 0x22));
+                } else if self.stats.health <= self.stats.max_health / 2 {
+                    canvas.set_draw_color(Color::RGB(0xEE, 0xAA, 0x22));
+                } else {
+                    canvas.set_draw_color(Color::RGB(0x66, 0xCC, 0x33));
+                }
+                let health_rect_offset =
+                    health_rect_width * i + (TILE_STRIDE - self.stats.max_health * health_rect_width) / 2;
+                let health_rect = Rect::new(
+                    x + health_rect_offset + gap / 2,
+                    y - TILE_STRIDE / 8 - 2,
+                    (health_rect_width - gap) as u32,
+                    (TILE_STRIDE / 8) as u32,
+                );
+                let _ = canvas.fill_rect(health_rect);
+            }
         }
     }
 }

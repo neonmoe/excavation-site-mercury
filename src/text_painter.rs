@@ -4,6 +4,9 @@ use fontdue_sdl2::FontTexture;
 use sdl2::pixels::Color;
 use sdl2::render::{Canvas, RenderTarget, TextureCreator};
 
+#[derive(Clone, Debug)]
+pub struct Text(pub Font, pub f32, pub Color, pub String);
+
 #[derive(Clone, Copy, Debug)]
 pub enum Font {
     RegularUi,
@@ -32,9 +35,14 @@ impl TextPainter<'_> {
         })
     }
 
-    pub fn draw_text<RT: RenderTarget>(&mut self, canvas: &mut Canvas<RT>, text_parts: &[(Font, f32, Color, &str)]) {
-        self.layout.reset(&LayoutSettings::default());
-        for (font_enum, font_size, color, text) in text_parts {
+    pub fn draw_text<RT: RenderTarget>(
+        &mut self,
+        canvas: &mut Canvas<RT>,
+        layout: &LayoutSettings,
+        text_parts: &[Text],
+    ) {
+        self.layout.reset(layout);
+        for Text(font_enum, font_size, color, text) in text_parts {
             self.layout.append(
                 &self.fonts,
                 &TextStyle::with_user_data(text, *font_size, *font_enum as usize, *color),
