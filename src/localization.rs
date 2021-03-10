@@ -31,7 +31,7 @@ impl Name {
             },
             Name::Slime => match language {
                 Language::Debug => unreachable!(),
-                Language::English => String::from("Coolant"),
+                Language::English => String::from("Living(?) Coolant"),
             },
             Name::Roach => match language {
                 Language::Debug => unreachable!(),
@@ -39,11 +39,11 @@ impl Name {
             },
             Name::Rockman => match language {
                 Language::Debug => unreachable!(),
-                Language::English => String::from("Rock Being"),
+                Language::English => String::from("Rock Man"),
             },
             Name::SentientMetal => match language {
                 Language::Debug => unreachable!(),
-                Language::English => String::from("Metal Being"),
+                Language::English => String::from("Superior Metal Being"),
             },
         }
     }
@@ -58,6 +58,22 @@ pub enum LocalizableString {
         roll: i32,
         attacker_arm: i32,
         defender_leg: i32,
+    },
+
+    AttackMissed {
+        attacker: Name,
+        defender: Name,
+    },
+
+    FighterDescription {
+        id: usize,
+        name: Name,
+        max_health: i32,
+        health: i32,
+        arm: i32,
+        leg: i32,
+        finger: i32,
+        brain: i32,
     },
 }
 
@@ -92,6 +108,56 @@ impl LocalizableString {
                         modf = attacker_arm - defender_leg,
                     ),
                 )],
+            },
+
+            LocalizableString::AttackMissed {
+                attacker,
+                defender,
+            } => match language {
+                Language::Debug => unreachable!(),
+                Language::English => vec![Text(
+                    Font::RegularUi,
+                    16.0,
+                    Color::WHITE,
+                    format!(
+                        "{att} struck {def}, but missed.\n",
+                        att = attacker.translated_to(language),
+                        def = defender.translated_to(language),
+                    ),
+                )],
+            },
+
+            LocalizableString::FighterDescription {
+                id,
+                name,
+                max_health,
+                health,
+                arm,
+                leg,
+                finger,
+                brain,
+            } => match language {
+                Language::Debug => unreachable!(),
+                Language::English => vec![
+                    Text(Font::RegularUi, 24.0, Color::WHITE, format!(
+                        "{}{}{}\n",
+                        name.translated_to(language),
+                        if *id <= 0 { " (that's you!)" } else { "" },
+                        if *health <= 0 { " (dead)" } else { "" },
+                    )),
+                    Text(Font::RegularUi, 20.0, Color::WHITE, format!("Health: ")),
+                    Text(Font::RegularUi, 20.0, if *health <= *max_health / 3 {
+                        Color::RGB(0xEE, 0x55, 0x44)
+                    } else if *health <= *max_health / 2 {
+                        Color::RGB(0xEE, 0xAA, 0x22)
+                    } else {
+                        Color::RGB(0x66, 0xCC, 0x33)
+                    }, format!("{}", health)),
+                    Text(Font::RegularUi, 20.0, Color::WHITE, format!(
+                        "/{}\nArm: {}\nLeg: {}\nFinger: {}\nBrain: {}\n",
+                        max_health, arm, leg, finger, brain
+                    ))
+                ],
             },
         }
     }

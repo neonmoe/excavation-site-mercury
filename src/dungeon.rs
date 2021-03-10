@@ -32,7 +32,7 @@ impl DungeonState {
         let level = Level::new(&mut rng);
         let mut fighters = Vec::new();
         let name = Name::UserInput(String::from("Astronaut"));
-        fighters.push(Fighter::new(name, TileGraphic::Player, 4, 4, stats::PLAYER));
+        fighters.push(Fighter::new(0, name, TileGraphic::Player, 4, 4, stats::PLAYER));
         let enemy_list = vec![
             (Name::Slime, TileGraphic::Slime, stats::SLIME),
             (Name::Roach, TileGraphic::Roach, stats::ROACH),
@@ -41,7 +41,7 @@ impl DungeonState {
         ];
         let mut x = 3;
         for (name, tile, stats) in enemy_list {
-            fighters.push(Fighter::new(name, tile, x, x + 2, stats));
+            fighters.push(Fighter::new(fighters.len(), name, tile, x, x + 2, stats));
             x += 1;
         }
         DungeonState {
@@ -161,5 +161,13 @@ impl Dungeon {
 
     pub fn round(&self) -> u64 {
         self.state.round
+    }
+
+    pub fn get_fighter(&self, id: usize) -> Option<&Fighter> {
+        if id < self.state.fighters.len() {
+            Some(&self.state.fighters[id])
+        } else {
+            None
+        }
     }
 }

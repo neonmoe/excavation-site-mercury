@@ -4,7 +4,7 @@ use crate::{
 use rand_core::RngCore;
 use rand_pcg::Pcg32;
 use sdl2::pixels::Color;
-use sdl2::rect::Rect;
+use sdl2::rect::{Point, Rect};
 use sdl2::render::{BlendMode, Canvas, RenderTarget};
 use std::cell::RefCell;
 use std::f32::consts::PI;
@@ -28,6 +28,7 @@ struct Animation {
 
 #[derive(Clone, Debug)]
 pub struct Fighter {
+    pub id: usize,
     pub name: Name,
     pub tile: Option<TileGraphic>,
     pub x: i32,
@@ -43,8 +44,9 @@ impl PartialEq for Fighter {
 }
 
 impl Fighter {
-    pub fn new(name: Name, tile: TileGraphic, x: i32, y: i32, stats: Stats) -> Fighter {
+    pub fn new(id: usize, name: Name, tile: TileGraphic, x: i32, y: i32, stats: Stats) -> Fighter {
         Fighter {
+            id,
             name,
             tile: Some(tile),
             x,
@@ -56,6 +58,7 @@ impl Fighter {
 
     pub fn dummy() -> Fighter {
         Fighter {
+            id: 0,
             name: Name::Dummy,
             tile: None,
             x: 0,
@@ -95,6 +98,10 @@ impl Fighter {
             animation.offset_y = 0;
             animation.width_inc = 0;
             animation.height_inc = 0;
+        }
+
+        if self.stats.health > 0 {
+            animation.offset_y -= TILE_STRIDE / 4;
         }
 
         if self.stats.flying && self.stats.health > 0 {
@@ -184,6 +191,7 @@ impl Fighter {
         camera: &Camera,
         dead_layer: bool,
         show_debug: bool,
+        selected: bool,
     ) {
         if let Some(tile) = self.tile {
             let is_dead = self.stats.health == 0;
@@ -205,23 +213,21 @@ impl Fighter {
                 ));
             }
 
+            let x = self.x * TILE_STRIDE - camera.x;
+            let y = self.y * TILE_STRIDE - camera.y;
+            if selected {
+                tile_painter.draw_tile(canvas, TileGraphic::TileHighlight, x, y, false, false);
+            }
+
             let animation = self.animation.borrow();
-            let x = self.x * TILE_STRIDE - camera.x + animation.offset_x;
-            let mut y = self.y * TILE_STRIDE - camera.y + animation.offset_y;
+            let x = x + animation.offset_x;
+            let y = y + animation.offset_y;
             if is_dead {
                 tile_painter.draw_tile(canvas, tile.dead(), x, y, false, false);
             } else {
-                y -= TILE_STRIDE / 4;
-                tile_painter.draw_tile_shadowed_ex(
-                    canvas,
-                    tile,
-                    x,
-                    y,
-                    (TILE_STRIDE + animation.width_inc) as u32,
-                    (TILE_STRIDE + animation.height_inc) as u32,
-                    animation.flip_h,
-                    false,
-                );
+                let w = (TILE_STRIDE + animation.width_inc) as u32;
+                let h = (TILE_STRIDE + animation.height_inc) as u32;
+                tile_painter.draw_tile_shadowed_ex(canvas, tile, x, y, w, h, animation.flip_h, false);
             }
 
             let gap = (4 - self.stats.max_health / 3).max(1);
@@ -249,5 +255,14 @@ impl Fighter {
                 let _ = canvas.fill_rect(health_rect);
             }
         }
+    }
+
+    pub fn mouse_over(&self, camera: &Camera, mouse: Point) -> bool {
+        let animation = self.animation.borrow();
+        let x = self.x * TILE_STRIDE - camera.x + animation.offset_x;
+        let y = self.y * TILE_STRIDE - camera.y + animation.offset_y;
+        let width = (TILE_STRIDE + animation.width_inc) as u32;
+        let height = (TILE_STRIDE + animation.height_inc) as u32;
+        Rect::new(x, y, width, height).contains_point(mouse)
     }
 }

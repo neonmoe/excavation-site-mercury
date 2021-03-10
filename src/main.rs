@@ -22,10 +22,10 @@
 //!   - ~~Design: easy enemy~~ (Big insect? Grown in low gravity. Moves randomly, backs off when attacked.)
 //!   - ~~Design: hard enemy~~ (Rock person. Hunts player until at low health, then backs to top-right corner.)
 //!   - ~~Design: hardest enemy~~ (Flying bits of metal, very menacing. Hits in a + shape every 3 turns, avoids the player.)
+//! - ~~Fighter stats inspection UI~~
 //! - Enemy AI implementation
 //! - Dungeon generation
 //!   - Design: abstract map struct for arranging rooms, for minimap rendering
-//! - Fighter stats inspection UI
 //! - Stat increases at the start of each level
 //! - Items
 //!   - Design: item storage, use, pickup UI
@@ -43,11 +43,14 @@
 //! - Volume settings
 //! - Sound effects
 //! - Background loop (music or ambient sfx)
+//! - Mouse control (pathfinding)
 
 use fontdue::layout::LayoutSettings;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
+use sdl2::mouse::MouseButton;
 use sdl2::pixels::Color;
+use sdl2::rect::{Point, Rect};
 use std::time::{Duration, Instant};
 
 mod text_painter;
@@ -92,11 +95,16 @@ pub fn main() {
     let mut dungeon = Dungeon::new((Instant::now() - initialization_start).subsec_nanos() as u64);
     let mut camera = Camera::new();
     let mut show_debug = false;
+    let mut mouse = Point::new(0, 0);
+    let mut selected_fighter = None;
     log::info!("Game startup took {:?}.", Instant::now() - initialization_start);
 
     let mut frame_times = Vec::new();
     let mut event_pump = sdl_context.event_pump().unwrap();
     'running: loop {
+        let mut should_select = false;
+        let mut should_move = false;
+
         for event in event_pump.poll_iter() {
             match event {
                 Event::Quit { .. }
@@ -104,6 +112,17 @@ pub fn main() {
                     keycode: Some(Keycode::Escape),
                     ..
                 } => break 'running,
+
+                Event::MouseButtonDown { mouse_btn, .. } => match mouse_btn {
+                    MouseButton::Left => should_select = true,
+                    MouseButton::Right => should_move = true,
+                    _ => {}
+                },
+
+                Event::MouseMotion { x, y, .. } => {
+                    mouse.x = x;
+                    mouse.y = y;
+                }
 
                 Event::KeyDown {
                     keycode: Some(Keycode::F5),
@@ -163,6 +182,19 @@ pub fn main() {
             }
         }
 
+        if should_move {
+            log::info!("TODO: Player should pathfind to mouse now");
+        }
+
+        if should_select {
+            selected_fighter = dungeon
+                .fighters()
+                .iter()
+                .filter(|fighter| fighter.mouse_over(&camera, mouse))
+                .map(|fighter| fighter.id)
+                .next();
+        }
+
         let mut fts = frame_times.iter();
         let delta_seconds = if let (Some(latest), Some(previous)) = (fts.nth_back(0), fts.nth_back(0)) {
             let frame_duration: Duration = *latest - *previous;
@@ -188,10 +220,11 @@ pub fn main() {
             .level()
             .draw(&mut canvas, &mut tile_painter, &camera, false, show_debug);
         for fighter in dungeon.fighters() {
-            fighter.draw(&mut canvas, &mut tile_painter, &camera, true, show_debug);
+            fighter.draw(&mut canvas, &mut tile_painter, &camera, true, show_debug, false);
         }
         for fighter in dungeon.fighters() {
-            fighter.draw(&mut canvas, &mut tile_painter, &camera, false, show_debug);
+            let selected = Some(fighter.id) == selected_fighter;
+            fighter.draw(&mut canvas, &mut tile_painter, &camera, false, show_debug, selected);
         }
         dungeon.level().draw_shadows(&mut canvas, &mut tile_painter, &camera);
         dungeon
@@ -199,6 +232,37 @@ pub fn main() {
             .draw(&mut canvas, &mut tile_painter, &camera, true, show_debug);
 
         dungeon.log().draw_messages(&mut canvas, &mut text_painter);
+
+        if let Some(selected_fighter) = selected_fighter.and_then(|id| dungeon.get_fighter(id)) {
+            let background_rect = Rect::new(width as i32 - 260, height as i32 - 20 - 16 * 12 - 140, 250, 140);
+            canvas.set_draw_color(Color::RGBA(0x22, 0x22, 0x22, 0xDD));
+            let _ = canvas.fill_rect(background_rect);
+
+            let layout = LayoutSettings {
+                x: (background_rect.x + 8) as f32,
+                y: (background_rect.y + 8) as f32,
+                max_width: Some((background_rect.width() - 16) as f32),
+                max_height: Some((background_rect.height() - 16) as f32),
+                ..LayoutSettings::default()
+            };
+            let fighter_description = LocalizableString::FighterDescription {
+                id: selected_fighter.id,
+                name: selected_fighter.name.clone(),
+                max_health: selected_fighter.stats.max_health,
+                health: selected_fighter.stats.health,
+                arm: selected_fighter.stats.arm,
+                leg: selected_fighter.stats.leg,
+                finger: selected_fighter.stats.finger,
+                brain: selected_fighter.stats.brain,
+            }
+            .localize(Language::English);
+            canvas.set_clip_rect(background_rect);
+            text_painter.draw_text(&mut canvas, &layout, &fighter_description);
+            canvas.set_clip_rect(None);
+
+            canvas.set_draw_color(Color::RGB(0x77, 0x88, 0x88));
+            let _ = canvas.draw_rect(background_rect);
+        }
 
         if show_debug {
             let color = Color::RGB(0xFF, 0xFF, 0x88);
