@@ -136,7 +136,6 @@ impl Fighter {
     }
 
     fn take_damage(&mut self, from: &Fighter, rng: &mut Pcg32, log: &mut GameLog, round: u64) {
-        // FIXME: This crashes when running in --release??
         let hit_roll = (rng.next_u32() % 6) as i32 + 1;
         let modifier = from.stats.arm - self.stats.leg;
         let hit_value = hit_roll + modifier;
