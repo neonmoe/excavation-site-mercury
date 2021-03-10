@@ -4,7 +4,7 @@ use crate::{
 use rand_core::RngCore;
 use rand_pcg::Pcg32;
 use sdl2::pixels::Color;
-use sdl2::rect::{Point, Rect};
+use sdl2::rect::Rect;
 use sdl2::render::{BlendMode, Canvas, RenderTarget};
 use std::cell::RefCell;
 use std::f32::consts::PI;
@@ -22,6 +22,8 @@ struct Animation {
     move_from_x: i32,
     move_from_y: i32,
     move_progress: f32,
+    flying_time: f32,
+    descent_progress: f32,
 }
 
 #[derive(Clone, Debug)]
@@ -64,30 +66,44 @@ impl Fighter {
     }
 
     pub fn animate(&self, delta_time: f32) {
-        const STEP_ANIMATION_DURATION: f32 = 0.15;
-
         let mut animation = self.animation.borrow_mut();
         if animation.move_progress > 0.0 {
-            animation.move_progress = (animation.move_progress - delta_time / STEP_ANIMATION_DURATION).max(0.0);
+            let duration = if self.stats.flying { 0.2 } else { 0.15 };
+            animation.move_progress = (animation.move_progress - delta_time / duration).max(0.0);
 
-            // This function goes up a little bit, then down a bit more, then up a little bit again.
-            // Kinda like the shape of M, except the middle dip is deeper than the two peaks.
-            let f = |x: f32| 1.0 + ((2.7 * PI * x - 1.85 * PI).sin() - 0.5) * 0.025;
-
-            let move_squish_width_ratio = f(animation.move_progress);
             let dx = animation.move_from_x - self.x;
             let dy = animation.move_from_y - self.y;
-            animation.width_inc = (TILE_STRIDE as f32 * move_squish_width_ratio) as i32 - TILE_STRIDE;
-            animation.height_inc = (TILE_STRIDE as f32 / move_squish_width_ratio) as i32 - TILE_STRIDE;
-            animation.offset_x =
-                ((dx as f32 * animation.move_progress) * TILE_STRIDE as f32) as i32 - (animation.width_inc) / 2;
-            animation.offset_y = ((dy as f32 * animation.move_progress) * TILE_STRIDE as f32) as i32
-                - (animation.height_inc) / 2
-                - ((1.0 - move_squish_width_ratio).max(0.0) * 2.0 * TILE_STRIDE as f32) as i32;
+            animation.offset_x = ((dx as f32 * animation.move_progress) * TILE_STRIDE as f32) as i32;
+            animation.offset_y = ((dy as f32 * animation.move_progress) * TILE_STRIDE as f32) as i32;
+
+            if !self.stats.flying {
+                // This function goes up a little bit, then down a bit more, then up a little bit again.
+                // Kinda like the shape of M, except the middle dip is deeper than the two peaks.
+                let f = |x: f32| 1.0 + ((2.7 * PI * x - 1.85 * PI).sin() - 0.5) * 0.025;
+
+                let move_squish_width_ratio = f(animation.move_progress);
+                animation.width_inc = (TILE_STRIDE as f32 * move_squish_width_ratio) as i32 - TILE_STRIDE;
+                animation.height_inc = (TILE_STRIDE as f32 / move_squish_width_ratio) as i32 - TILE_STRIDE;
+                animation.offset_x -= (animation.width_inc) / 2;
+                animation.offset_y -= (animation.height_inc) / 2
+                    + ((1.0 - move_squish_width_ratio).max(0.0) * 2.0 * TILE_STRIDE as f32) as i32;
+            }
         } else {
             animation.move_from_x = self.x;
             animation.move_from_y = self.y;
+            animation.offset_x = 0;
+            animation.offset_y = 0;
+            animation.width_inc = 0;
+            animation.height_inc = 0;
         }
+
+        if self.stats.flying && self.stats.health > 0 {
+            animation.flying_time += delta_time;
+        } else if animation.descent_progress < 1.0 {
+            animation.descent_progress = (animation.descent_progress + delta_time * 2.0).min(1.0);
+        }
+        animation.offset_y +=
+            (((animation.flying_time * 4.0).sin() - 1.0) * 8.0 * (1.0 - animation.descent_progress)) as i32;
     }
 
     pub fn step(

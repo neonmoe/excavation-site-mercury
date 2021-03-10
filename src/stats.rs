@@ -5,6 +5,7 @@ pub const DUMMY: Stats = Stats {
     leg: 1,
     finger: 1,
     brain: 1,
+    flying: false,
 };
 
 pub const PLAYER: Stats = Stats {
@@ -14,6 +15,7 @@ pub const PLAYER: Stats = Stats {
     leg: 10,
     finger: 10,
     brain: 10,
+    flying: false,
 };
 
 pub const SLIME: Stats = Stats {
@@ -23,6 +25,7 @@ pub const SLIME: Stats = Stats {
     leg: 8,
     finger: 1,
     brain: 1,
+    flying: false,
 };
 
 pub const ROACH: Stats = Stats {
@@ -32,24 +35,27 @@ pub const ROACH: Stats = Stats {
     leg: 13,
     finger: 8,
     brain: 4,
+    flying: false,
 };
 
 pub const ROCKMAN: Stats = Stats {
-    max_health: 8,
-    health: 8,
+    max_health: 7,
+    health: 7,
     arm: 12,
     leg: 14,
     finger: 5,
     brain: 9,
+    flying: false,
 };
 
 pub const SENTIENT_METAL: Stats = Stats {
-    max_health: 10,
-    health: 10,
+    max_health: 9,
+    health: 9,
     arm: 16,
-    leg: 16,
+    leg: 15,
     finger: 1,
     brain: 12,
+    flying: true,
 };
 
 #[derive(Clone, Debug)]
@@ -69,4 +75,7 @@ pub struct Stats {
     /// The smarts and mental power of the creature, for use in
     /// operating machines and seeing through illusions.
     pub brain: i32,
+    /// True for creatures floating in air, and those who have
+    /// acquired a flying apparatus.
+    pub flying: bool,
 }

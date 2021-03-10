@@ -17,11 +17,11 @@
 //! - ~~De/serializable game struct~~
 //! - ~~Entity/mover/mob base~~
 //! - ~~On-screen log and localization~~
-//! - Enemy graphics and AI design
+//! - ~~Enemy graphics and AI design~~
 //!   - ~~Design: easiest enemy~~ (Classic slime enemy, only moves when attacked, towards attack.)
 //!   - ~~Design: easy enemy~~ (Big insect? Grown in low gravity. Moves randomly, backs off when attacked.)
-//!   - Design: hard enemy (Rock person. Hunts player until at low health, then backs to top-right corner.)
-//!   - Design: hardest enemy (Flying bits of metal, very menacing. Hits in a + shape every 3 turns, avoids the player.)
+//!   - ~~Design: hard enemy~~ (Rock person. Hunts player until at low health, then backs to top-right corner.)
+//!   - ~~Design: hardest enemy~~ (Flying bits of metal, very menacing. Hits in a + shape every 3 turns, avoids the player.)
 //! - Enemy AI implementation
 //! - Dungeon generation
 //!   - Design: abstract map struct for arranging rooms, for minimap rendering
@@ -38,7 +38,11 @@
 //!
 //! - Better hop animation, attack animation, defend animation, dying animation
 //!   - Design: generic animation struct
+//! - Main menu
 //! - Class choice UI (different sets of starting stats)
+//! - Volume settings
+//! - Sound effects
+//! - Background loop (music or ambient sfx)
 
 use fontdue::layout::LayoutSettings;
 use sdl2::event::Event;

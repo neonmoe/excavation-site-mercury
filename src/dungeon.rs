@@ -41,7 +41,7 @@ impl DungeonState {
         ];
         let mut x = 3;
         for (name, tile, stats) in enemy_list {
-            fighters.push(Fighter::new(name, tile, x, 5, stats));
+            fighters.push(Fighter::new(name, tile, x, x + 2, stats));
             x += 1;
         }
         DungeonState {
