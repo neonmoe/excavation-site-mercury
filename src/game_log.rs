@@ -44,9 +44,10 @@ impl GameLog {
         let mut localized_texts: Vec<Text> = Vec::new();
         for (round, message) in &self.messages {
             // TODO: Add language option, pass it to GameLog
+            localized_texts.push(Text(Font::RegularUi, 14.0, Color::WHITE, String::from("\n")));
             localized_texts.push(Text(
                 Font::RegularUi,
-                16.0,
+                14.0,
                 Color::WHITE,
                 format!(
                     " ::: 21XX-03-{d:x} T {h:02}:{m:02}:{s:02} :::\n",

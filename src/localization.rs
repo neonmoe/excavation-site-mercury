@@ -63,7 +63,12 @@ pub enum LocalizableString {
     AttackMissed {
         attacker: Name,
         defender: Name,
+        roll: i32,
+        attacker_arm: i32,
+        defender_leg: i32,
     },
+
+    SomeoneWasIncapacitated(Name),
 
     FighterDescription {
         id: usize,
@@ -83,6 +88,7 @@ impl LocalizableString {
             return vec![Text(Font::RegularUi, 12.0, Color::WHITE, format!("{:#?}", self))];
         }
 
+        const NORMAL_FONT_SIZE: f32 = 20.0;
         match self {
             LocalizableString::SomeoneAttackedSomeone {
                 attacker,
@@ -95,7 +101,7 @@ impl LocalizableString {
                 Language::Debug => unreachable!(),
                 Language::English => vec![Text(
                     Font::RegularUi,
-                    16.0,
+                    NORMAL_FONT_SIZE,
                     Color::WHITE,
                     format!(
                         "{att} hit {def} for {dmg} damage! Roll: {roll} (1d6 modified by {arm} arm - {leg} leg = {modf})\n",
@@ -113,18 +119,32 @@ impl LocalizableString {
             LocalizableString::AttackMissed {
                 attacker,
                 defender,
+                roll,
+                attacker_arm,
+                defender_leg,
             } => match language {
                 Language::Debug => unreachable!(),
                 Language::English => vec![Text(
                     Font::RegularUi,
-                    16.0,
+                    NORMAL_FONT_SIZE,
                     Color::WHITE,
                     format!(
-                        "{att} struck {def}, but missed.\n",
+                        "{att} struck {def}, but missed. Roll: {roll} (1d6 modified by {arm} arm - {leg} leg = {modf})\n",
                         att = attacker.translated_to(language),
                         def = defender.translated_to(language),
+                        roll = roll,
+                        arm = attacker_arm,
+                        leg = defender_leg,
+                        modf = attacker_arm - defender_leg,
                     ),
                 )],
+            },
+
+            LocalizableString::SomeoneWasIncapacitated(name) => match language {
+                Language::Debug => unreachable!(),
+                Language::English => vec![Text(Font::RegularUi, NORMAL_FONT_SIZE, Color::WHITE, format!(
+                    "{} is incapacitated.\n", name.translated_to(language)
+                ))],
             },
 
             LocalizableString::FighterDescription {
@@ -148,7 +168,7 @@ impl LocalizableString {
                     Text(Font::RegularUi, 20.0, Color::WHITE, format!("Health: ")),
                     Text(Font::RegularUi, 20.0, if *health <= *max_health / 3 {
                         Color::RGB(0xEE, 0x55, 0x44)
-                    } else if *health <= *max_health / 2 {
+                    } else if *health <= *max_health * 2 / 3 {
                         Color::RGB(0xEE, 0xAA, 0x22)
                     } else {
                         Color::RGB(0x66, 0xCC, 0x33)

@@ -21,7 +21,7 @@ pub const PLAYER: Stats = Stats {
 pub const SLIME: Stats = Stats {
     max_health: 4,
     health: 4,
-    arm: 7,
+    arm: 12,
     leg: 8,
     finger: 1,
     brain: 1,

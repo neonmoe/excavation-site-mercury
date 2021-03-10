@@ -1,6 +1,6 @@
 // TODO: DungeonEvents (and DungeonSaves) should be versioned.
 
-use crate::{stats, Fighter, GameLog, Level, Name, TileGraphic};
+use crate::{enemy_ai, stats, EnemyAi, Fighter, GameLog, Level, Name, Stats, TileGraphic};
 use rand_core::SeedableRng;
 use rand_pcg::Pcg32;
 use serde::{Deserialize, Serialize};
@@ -22,6 +22,7 @@ struct DungeonState {
     log: GameLog,
     level: Level,
     fighters: Vec<Fighter>,
+    ais: Vec<Option<EnemyAi>>,
     round: u64,
 }
 
@@ -30,27 +31,42 @@ impl DungeonState {
         let mut rng = Pcg32::seed_from_u64(seed);
         let log = GameLog::new();
         let level = Level::new(&mut rng);
-        let mut fighters = Vec::new();
-        let name = Name::UserInput(String::from("Astronaut"));
-        fighters.push(Fighter::new(0, name, TileGraphic::Player, 4, 4, stats::PLAYER));
-        let enemy_list = vec![
-            (Name::Slime, TileGraphic::Slime, stats::SLIME),
-            (Name::Roach, TileGraphic::Roach, stats::ROACH),
-            (Name::Rockman, TileGraphic::Rockman, stats::ROCKMAN),
-            (Name::SentientMetal, TileGraphic::SentientMetal, stats::SENTIENT_METAL),
-        ];
-        let mut x = 3;
-        for (name, tile, stats) in enemy_list {
-            fighters.push(Fighter::new(fighters.len(), name, tile, x, x + 2, stats));
-            x += 1;
-        }
-        DungeonState {
+        let mut state = DungeonState {
             rng,
             log,
             level,
-            fighters,
+            fighters: Vec::new(),
+            ais: Vec::new(),
             round: 1,
+        };
+
+        let name = Name::UserInput(String::from("Astronaut"));
+        state.spawn_fighter(name, TileGraphic::Player, stats::PLAYER, None, 4, 4);
+
+        let enemy_list = vec![
+            (Name::Slime, TileGraphic::Slime, stats::SLIME, enemy_ai::SLIME),
+            (Name::Roach, TileGraphic::Roach, stats::ROACH, enemy_ai::ROACH),
+            (Name::Rockman, TileGraphic::Rockman, stats::ROCKMAN, enemy_ai::ROCKMAN),
+            (
+                Name::SentientMetal,
+                TileGraphic::SentientMetal,
+                stats::SENTIENT_METAL,
+                enemy_ai::SENTIENT_METAL,
+            ),
+        ];
+        let mut x = 3;
+        for (name, tile, stats, ai) in enemy_list {
+            state.spawn_fighter(name, tile, stats, Some(ai), x, x + 2);
+            x += 1;
         }
+
+        state
+    }
+
+    pub fn spawn_fighter(&mut self, name: Name, tile: TileGraphic, stats: Stats, ai: Option<EnemyAi>, x: i32, y: i32) {
+        self.fighters
+            .push(Fighter::new(self.fighters.len(), name, tile, x, y, stats));
+        self.ais.push(ai);
     }
 
     pub fn move_player(&mut self, dx: i32, dy: i32) {
@@ -69,6 +85,29 @@ impl DungeonState {
     }
 
     pub fn process_turn(&mut self) {
+        debug_assert_eq!(self.fighters.len(), self.ais.len());
+        let mut current_fighter = Fighter::dummy();
+        let mut current_ai = None;
+        for i in 0..self.fighters.len() {
+            // Swap out the fighter being processed for the dummy
+            std::mem::swap(&mut current_fighter, &mut self.fighters[i]);
+            std::mem::swap(&mut current_ai, &mut self.ais[i]);
+
+            if let Some(ai) = current_ai.as_mut() {
+                ai.process(
+                    &mut current_fighter,
+                    &mut self.fighters,
+                    &mut self.level,
+                    &mut self.rng,
+                    &mut self.log,
+                    self.round,
+                );
+            }
+
+            // Swap the dummy back from the array
+            std::mem::swap(&mut self.fighters[i], &mut current_fighter);
+            std::mem::swap(&mut self.ais[i], &mut current_ai);
+        }
         self.round += 1;
     }
 }

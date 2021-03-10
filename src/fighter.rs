@@ -34,6 +34,7 @@ pub struct Fighter {
     pub x: i32,
     pub y: i32,
     pub stats: Stats,
+    pub previously_hit_from: Option<(i32, i32)>,
     animation: RefCell<Animation>,
 }
 
@@ -52,6 +53,7 @@ impl Fighter {
             x,
             y,
             stats,
+            previously_hit_from: None,
             animation: RefCell::new(Animation::default()),
         }
     }
@@ -64,6 +66,7 @@ impl Fighter {
             x: 0,
             y: 0,
             stats: stats::DUMMY,
+            previously_hit_from: None,
             animation: RefCell::new(Animation::default()),
         }
     }
@@ -132,6 +135,7 @@ impl Fighter {
         {
             hit_something = !hit_fighter.walkable();
             hit_fighter.take_damage(&self, rng, log, round);
+            hit_fighter.previously_hit_from = Some((-dx, -dy));
         }
 
         let hit_terrain = level.get_terrain(new_x, new_y);
@@ -176,7 +180,20 @@ impl Fighter {
                     defender_leg: self.stats.leg,
                 },
             );
-            if self.stats.health == 0 {}
+            if self.stats.health == 0 {
+                log.combat(round, LocalizableString::SomeoneWasIncapacitated(self.name.clone()));
+            }
+        } else {
+            log.combat(
+                round,
+                LocalizableString::AttackMissed {
+                    attacker: from.name.clone(),
+                    defender: self.name.clone(),
+                    roll: hit_roll,
+                    attacker_arm: from.stats.arm,
+                    defender_leg: self.stats.leg,
+                },
+            );
         }
     }
 
@@ -213,15 +230,15 @@ impl Fighter {
                 ));
             }
 
-            let x = self.x * TILE_STRIDE - camera.x;
-            let y = self.y * TILE_STRIDE - camera.y;
             if selected {
+                let x = self.x * TILE_STRIDE - camera.x;
+                let y = self.y * TILE_STRIDE - camera.y;
                 tile_painter.draw_tile(canvas, TileGraphic::TileHighlight, x, y, false, false);
             }
 
             let animation = self.animation.borrow();
-            let x = x + animation.offset_x;
-            let y = y + animation.offset_y;
+            let x = self.x * TILE_STRIDE - camera.x + animation.offset_x;
+            let y = self.y * TILE_STRIDE - camera.y + animation.offset_y;
             if is_dead {
                 tile_painter.draw_tile(canvas, tile.dead(), x, y, false, false);
             } else {
@@ -239,7 +256,7 @@ impl Fighter {
                     canvas.set_draw_color(Color::RGBA(0xAA, 0xAA, 0xAA, 0xAA));
                 } else if self.stats.health <= self.stats.max_health / 3 {
                     canvas.set_draw_color(Color::RGB(0xCC, 0x33, 0x22));
-                } else if self.stats.health <= self.stats.max_health / 2 {
+                } else if self.stats.health <= self.stats.max_health * 2 / 3 {
                     canvas.set_draw_color(Color::RGB(0xEE, 0xAA, 0x22));
                 } else {
                     canvas.set_draw_color(Color::RGB(0x66, 0xCC, 0x33));

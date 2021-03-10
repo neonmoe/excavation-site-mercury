@@ -23,9 +23,10 @@
 //!   - ~~Design: hard enemy~~ (Rock person. Hunts player until at low health, then backs to top-right corner.)
 //!   - ~~Design: hardest enemy~~ (Flying bits of metal, very menacing. Hits in a + shape every 3 turns, avoids the player.)
 //! - ~~Fighter stats inspection UI~~
-//! - Enemy AI implementation
+//! - Enemy AI implementations (~~slime~~, ~~roach~~, ~~rockman~~, sentient metal)
 //! - Dungeon generation
 //!   - Design: abstract map struct for arranging rooms, for minimap rendering
+//! - Player death handling, game over UI
 //! - Stat increases at the start of each level
 //! - Items
 //!   - Design: item storage, use, pickup UI
@@ -71,6 +72,8 @@ mod game_log;
 pub use game_log::GameLog;
 mod localization;
 pub use localization::{Language, LocalizableString, Name};
+pub mod enemy_ai;
+pub use enemy_ai::EnemyAi;
 
 static QUICK_SAVE_FILE: &str = "excavation-site-mercury-quicksave.bin";
 
@@ -220,7 +223,8 @@ pub fn main() {
             .level()
             .draw(&mut canvas, &mut tile_painter, &camera, false, show_debug);
         for fighter in dungeon.fighters() {
-            fighter.draw(&mut canvas, &mut tile_painter, &camera, true, show_debug, false);
+            let selected = Some(fighter.id) == selected_fighter;
+            fighter.draw(&mut canvas, &mut tile_painter, &camera, true, show_debug, selected);
         }
         for fighter in dungeon.fighters() {
             let selected = Some(fighter.id) == selected_fighter;
@@ -234,7 +238,7 @@ pub fn main() {
         dungeon.log().draw_messages(&mut canvas, &mut text_painter);
 
         if let Some(selected_fighter) = selected_fighter.and_then(|id| dungeon.get_fighter(id)) {
-            let background_rect = Rect::new(width as i32 - 260, height as i32 - 20 - 16 * 12 - 140, 250, 140);
+            let background_rect = Rect::new(width as i32 - 310, height as i32 - 20 - 16 * 12 - 140, 300, 140);
             canvas.set_draw_color(Color::RGBA(0x22, 0x22, 0x22, 0xDD));
             let _ = canvas.fill_rect(background_rect);
 
