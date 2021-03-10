@@ -18,10 +18,10 @@
 //! - ~~Entity/mover/mob base~~
 //! - ~~On-screen log and localization~~
 //! - Enemy graphics and AI design
-//!   - Design: easiest enemy
-//!   - Design: easy enemy
-//!   - Design: hard enemy
-//!   - Design: hardest enemy
+//!   - ~~Design: easiest enemy~~ (Classic slime enemy, only moves when attacked, towards attack.)
+//!   - ~~Design: easy enemy~~ (Big insect? Grown in low gravity. Moves randomly, backs off when attacked.)
+//!   - Design: hard enemy (Rock person. Hunts player until at low health, then backs to top-right corner.)
+//!   - Design: hardest enemy (Flying bits of metal, very menacing. Hits in a + shape every 3 turns, avoids the player.)
 //! - Enemy AI implementation
 //! - Dungeon generation
 //!   - Design: abstract map struct for arranging rooms, for minimap rendering

@@ -193,7 +193,7 @@ impl Fighter {
             let x = self.x * TILE_STRIDE - camera.x + animation.offset_x;
             let mut y = self.y * TILE_STRIDE - camera.y + animation.offset_y;
             if is_dead {
-                tile_painter.draw_tile_rotated(canvas, tile, x, y, 270.0, Point::new(TILE_STRIDE / 2, TILE_STRIDE / 2));
+                tile_painter.draw_tile(canvas, tile.dead(), x, y, false, false);
             } else {
                 y -= TILE_STRIDE / 4;
                 tile_painter.draw_tile_shadowed_ex(

@@ -16,6 +16,42 @@ pub const PLAYER: Stats = Stats {
     brain: 10,
 };
 
+pub const SLIME: Stats = Stats {
+    max_health: 4,
+    health: 4,
+    arm: 7,
+    leg: 8,
+    finger: 1,
+    brain: 1,
+};
+
+pub const ROACH: Stats = Stats {
+    max_health: 3,
+    health: 3,
+    arm: 10,
+    leg: 13,
+    finger: 8,
+    brain: 4,
+};
+
+pub const ROCKMAN: Stats = Stats {
+    max_health: 8,
+    health: 8,
+    arm: 12,
+    leg: 14,
+    finger: 5,
+    brain: 9,
+};
+
+pub const SENTIENT_METAL: Stats = Stats {
+    max_health: 10,
+    health: 10,
+    arm: 16,
+    leg: 16,
+    finger: 1,
+    brain: 12,
+};
+
 #[derive(Clone, Debug)]
 pub struct Stats {
     /// Cap for [Stats::health].

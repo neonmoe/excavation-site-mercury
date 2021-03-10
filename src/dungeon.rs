@@ -32,9 +32,18 @@ impl DungeonState {
         let level = Level::new(&mut rng);
         let mut fighters = Vec::new();
         let name = Name::UserInput(String::from("Astronaut"));
-        let name_ = Name::UserInput(String::from("Astronaut Double"));
         fighters.push(Fighter::new(name, TileGraphic::Player, 4, 4, stats::PLAYER));
-        fighters.push(Fighter::new(name_, TileGraphic::Player, 3, 4, stats::PLAYER));
+        let enemy_list = vec![
+            (Name::Slime, TileGraphic::Slime, stats::SLIME),
+            (Name::Roach, TileGraphic::Roach, stats::ROACH),
+            (Name::Rockman, TileGraphic::Rockman, stats::ROCKMAN),
+            (Name::SentientMetal, TileGraphic::SentientMetal, stats::SENTIENT_METAL),
+        ];
+        let mut x = 3;
+        for (name, tile, stats) in enemy_list {
+            fighters.push(Fighter::new(name, tile, x, 5, stats));
+            x += 1;
+        }
         DungeonState {
             rng,
             log,

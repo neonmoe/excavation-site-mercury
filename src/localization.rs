@@ -11,6 +11,10 @@ pub enum Language {
 pub enum Name {
     UserInput(String),
     Dummy,
+    Slime,
+    Roach,
+    Rockman,
+    SentientMetal,
 }
 
 impl Name {
@@ -24,6 +28,22 @@ impl Name {
             Name::Dummy => match language {
                 Language::Debug => unreachable!(),
                 Language::English => String::from("Dummy"),
+            },
+            Name::Slime => match language {
+                Language::Debug => unreachable!(),
+                Language::English => String::from("Coolant"),
+            },
+            Name::Roach => match language {
+                Language::Debug => unreachable!(),
+                Language::English => String::from("Roach"),
+            },
+            Name::Rockman => match language {
+                Language::Debug => unreachable!(),
+                Language::English => String::from("Rock Being"),
+            },
+            Name::SentientMetal => match language {
+                Language::Debug => unreachable!(),
+                Language::English => String::from("Metal Being"),
             },
         }
     }

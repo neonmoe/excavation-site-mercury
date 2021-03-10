@@ -26,10 +26,14 @@ pub enum TileGraphic {
     SideDoorClosed,
     SideDoorOpening,
     SideDoorOpen,
-    HealthEmpty,
-    HealthFull,
-    HealthMedium,
-    HealthLow,
+    Slime,
+    DeadSlime,
+    Roach,
+    DeadRoach,
+    Rockman,
+    DeadRockman,
+    SentientMetal,
+    DeadSentientMetal,
 }
 
 impl TileGraphic {
@@ -37,6 +41,16 @@ impl TileGraphic {
         match self {
             TileGraphic::WallTop => true,
             _ => false,
+        }
+    }
+
+    pub const fn dead(self) -> TileGraphic {
+        match self {
+            TileGraphic::Slime => TileGraphic::DeadSlime,
+            TileGraphic::Roach => TileGraphic::DeadRoach,
+            TileGraphic::Rockman => TileGraphic::DeadRockman,
+            TileGraphic::SentientMetal => TileGraphic::DeadSentientMetal,
+            x => x,
         }
     }
 }
