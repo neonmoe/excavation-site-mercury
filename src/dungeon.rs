@@ -5,7 +5,8 @@ use rand_core::SeedableRng;
 use rand_pcg::Pcg32;
 use serde::{Deserialize, Serialize};
 
-/// Messages that cause things to happen in the Dungeon.
+/// Messages that cause things to happen in the Dungeon. Saves consist
+/// of a seed, a bunch of these, and some metadata.
 #[derive(Clone, Copy, Serialize, Deserialize)]
 pub enum DungeonEvent {
     MoveUp,

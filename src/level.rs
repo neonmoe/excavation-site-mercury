@@ -54,10 +54,10 @@ impl Level {
     pub fn new(rng: &mut Pcg32) -> Level {
         let mut terrain = [Terrain::Empty; LEVEL_WIDTH * LEVEL_HEIGHT];
 
-        let x0 = 2;
-        let y0 = 2;
-        let x1 = 6 + rng.next_u32() as usize % 8;
-        let y1 = 6 + rng.next_u32() as usize % 5;
+        let x0 = 1;
+        let y0 = 1;
+        let x1 = 8 + rng.next_u32() as usize % 8;
+        let y1 = 8 + rng.next_u32() as usize % 5;
         for y in y0..=y1 {
             for x in x0..=x1 {
                 terrain[x + y * LEVEL_WIDTH] = if (x == (x1 + x0) / 2 && y == y0) || (x == x1 && y == (y1 + y0) / 2) {

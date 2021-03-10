@@ -105,7 +105,7 @@ impl Fighter {
 
         for hit_fighter in fighters
             .iter_mut()
-            .filter(|fighter| fighter.x == new_x && fighter.y == new_y)
+            .filter(|fighter| fighter.x == new_x && fighter.y == new_y && fighter.stats.health > 0)
         {
             hit_something = !hit_fighter.walkable();
             hit_fighter.take_damage(&self, rng, log, round);
@@ -136,6 +136,7 @@ impl Fighter {
     }
 
     fn take_damage(&mut self, from: &Fighter, rng: &mut Pcg32, log: &mut GameLog, round: u64) {
+        // FIXME: This crashes when running in --release??
         let hit_roll = (rng.next_u32() % 6) as i32 + 1;
         let modifier = from.stats.arm - self.stats.leg;
         let hit_value = hit_roll + modifier;

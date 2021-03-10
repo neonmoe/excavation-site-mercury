@@ -1,3 +1,45 @@
+//! Welcome to the spotty documentation of the internals of Excavation
+//! Site Mercury, an entry to the 7DRLx17 game jam.
+//!
+//! # The documentation
+//!
+//! I've added some explanatory documentation for structs / functions
+//! that aren't self-explanatory, but for the most part I haven't paid
+//! attention to documentation, as I don't expect anyone to reuse this
+//! code.
+//!
+//! # Roadmap
+//!
+//! Here's a list of features I have planned and what I've already
+//! implemented:
+//!
+//! - ~~Dungeon rendering~~
+//! - ~~De/serializable game struct~~
+//! - ~~Entity/mover/mob base~~
+//! - ~~On-screen log and localization~~
+//! - Enemy graphics and AI design
+//!   - Design: easiest enemy
+//!   - Design: easy enemy
+//!   - Design: hard enemy
+//!   - Design: hardest enemy
+//! - Enemy AI implementation
+//! - Dungeon generation
+//!   - Design: abstract map struct for arranging rooms, for minimap rendering
+//! - Fighter stats inspection UI
+//! - Stat increases at the start of each level
+//! - Items
+//!   - Design: item storage, use, pickup UI
+//! - Locked rooms with treasure, openable with the Finger stat
+//! - Hazard rooms to get treasure or circumvent enemies
+//!   - Design: hazard + challenged stat combinations (Brain is still useless)
+//!   - Design: dungeon generation rules to allow skipping enemy rooms
+//!
+//! And here's some "polish" features I'll add if I have the time:
+//!
+//! - Better hop animation, attack animation, defend animation, dying animation
+//!   - Design: generic animation struct
+//! - Class choice UI (different sets of starting stats)
+
 use fontdue::layout::LayoutSettings;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
