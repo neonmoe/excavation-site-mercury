@@ -23,7 +23,7 @@ pub struct TextPainter<'r> {
 impl TextPainter<'_> {
     pub fn new<'r, T>(texture_creator: &'r TextureCreator<T>) -> Result<TextPainter<'r>, String> {
         let font_texture = FontTexture::new(&texture_creator)?;
-        let font = include_bytes!("fonts/iceland/Iceland-Regular.ttf") as &[u8];
+        let font = include_bytes!("fonts/recursive/Recursive-Regular.ttf") as &[u8];
         let regular_ui = FontdueFont::from_bytes(font, FontSettings::default()).unwrap();
         let fonts = [regular_ui];
         let layout = Layout::new(CoordinateSystem::PositiveYDown);

@@ -165,9 +165,8 @@ impl Fighter {
     fn take_damage(&mut self, from: &Fighter, rng: &mut Pcg32, log: &mut GameLog, round: u64) {
         let hit_roll = (rng.next_u32() % 6) as i32 + 1;
         let modifier = from.stats.arm - self.stats.leg;
-        let hit_value = hit_roll + modifier;
-        if hit_value > 0 {
-            let damage = 1 + hit_value / 6;
+        if hit_roll >= -modifier {
+            let damage = 1 + (hit_roll + modifier) / 6;
             self.stats.health = (self.stats.health - damage).max(0);
             log.combat(
                 round,
@@ -180,6 +179,7 @@ impl Fighter {
                     defender_leg: self.stats.leg,
                 },
             );
+
             if self.stats.health == 0 {
                 log.combat(round, LocalizableString::SomeoneWasIncapacitated(self.name.clone()));
             }

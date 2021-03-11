@@ -24,6 +24,8 @@
 //!   - ~~Design: hardest enemy~~ (Flying bits of metal, very menacing. Hits in a + shape every 3 turns, avoids the player.)
 //! - ~~Fighter stats inspection UI~~
 //! - Enemy AI implementations (~~slime~~, ~~roach~~, ~~rockman~~, sentient metal)
+//! - Attack effects
+//!   - Required to implement sentient metal's ranged attack
 //! - Dungeon generation
 //!   - Design: abstract map struct for arranging rooms, for minimap rendering
 //! - Player death handling, game over UI
@@ -37,6 +39,8 @@
 //!
 //! And here's some "polish" features I'll add if I have the time:
 //!
+//! - Culling the zipped binary to <1MiB
+//!   - Fonts have way too many glyphs, probably fixable with: https://github.com/fonttools/fonttools
 //! - Better hop animation, attack animation, defend animation, dying animation
 //!   - Design: generic animation struct
 //! - Main menu
@@ -238,7 +242,7 @@ pub fn main() {
         dungeon.log().draw_messages(&mut canvas, &mut text_painter);
 
         if let Some(selected_fighter) = selected_fighter.and_then(|id| dungeon.get_fighter(id)) {
-            let background_rect = Rect::new(width as i32 - 310, height as i32 - 20 - 16 * 12 - 140, 300, 140);
+            let background_rect = Rect::new(width as i32 - 310, height as i32 - 20 - 16 * 12 - 150, 300, 150);
             canvas.set_draw_color(Color::RGBA(0x22, 0x22, 0x22, 0xDD));
             let _ = canvas.fill_rect(background_rect);
 
