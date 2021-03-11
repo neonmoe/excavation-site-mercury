@@ -29,7 +29,7 @@
 //! - ~~Dungeon generation~~
 //!   - ~~Design: abstract map struct for arranging rooms, for minimap rendering~~
 //! - ~~Level progression (level exits and difficulty curve)~~
-//! - Line of sight
+//! - ~~Line of sight~~
 //! - Player death handling, game over UI
 //! - Stat increases at the start of each level
 //! - Items
@@ -213,6 +213,12 @@ pub fn main() {
                         if let Some(event) = event {
                             dungeon.run_event(event);
                             dungeon.run_event(DungeonEvent::ProcessTurn);
+
+                            let player = dungeon.player();
+                            let (x, y) = (player.x, player.y);
+                            let level = dungeon.level_mut();
+                            level.line_of_sight_x = x;
+                            level.line_of_sight_y = y;
                         }
                     }
                 }
@@ -259,7 +265,7 @@ pub fn main() {
 
         dungeon
             .level()
-            .draw(&mut canvas, &mut tile_painter, &camera, false, show_debug);
+            .draw(&mut canvas, &mut tile_painter, &camera, false, show_debug, false);
         for fighter in dungeon.fighters() {
             let selected = Some(fighter.id) == selected_fighter;
             fighter.draw(&mut canvas, &mut tile_painter, &camera, true, show_debug, selected);
@@ -268,10 +274,20 @@ pub fn main() {
             let selected = Some(fighter.id) == selected_fighter;
             fighter.draw(&mut canvas, &mut tile_painter, &camera, false, show_debug, selected);
         }
-        dungeon.level().draw_shadows(&mut canvas, &mut tile_painter, &camera);
-        dungeon
-            .level()
-            .draw(&mut canvas, &mut tile_painter, &camera, true, show_debug);
+        for fighter in dungeon.fighters() {
+            fighter.draw_health(&mut canvas, &camera);
+        }
+        if dungeon.is_first_level() {
+            dungeon.level().draw_shadows(&mut canvas, &mut tile_painter, &camera);
+        }
+        dungeon.level().draw(
+            &mut canvas,
+            &mut tile_painter,
+            &camera,
+            true,
+            show_debug,
+            !dungeon.is_first_level(),
+        );
 
         dungeon.log().draw_messages(&mut canvas, &mut text_painter);
 

@@ -210,6 +210,14 @@ impl Dungeon {
         &self.state.levels[self.state.current_level]
     }
 
+    pub fn level_mut(&mut self) -> &mut Level {
+        &mut self.state.levels[self.state.current_level]
+    }
+
+    pub fn is_first_level(&self) -> bool {
+        self.state.current_level == 0
+    }
+
     pub fn fighters(&self) -> &[Fighter] {
         &self.state.fighters
     }

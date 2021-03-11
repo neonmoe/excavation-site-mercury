@@ -276,31 +276,43 @@ impl Fighter {
                 let h = (TILE_STRIDE + animation.height_inc) as u32;
                 tile_painter.draw_tile_shadowed_ex(canvas, tile, x, y, w, h, animation.flip_h, false);
             }
+        }
+    }
 
-            let gap = (4 - self.stats.max_health / 3).max(1);
-            let health_area_width = TILE_STRIDE - 20 + self.stats.max_health * 3;
-            let health_rect_width = health_area_width / self.stats.max_health;
-            canvas.set_blend_mode(BlendMode::Blend);
-            for i in 0..self.stats.max_health {
-                if i >= self.stats.health {
-                    canvas.set_draw_color(Color::RGBA(0xAA, 0xAA, 0xAA, 0xAA));
-                } else if self.stats.health <= self.stats.max_health / 3 {
-                    canvas.set_draw_color(Color::RGB(0xCC, 0x33, 0x22));
-                } else if self.stats.health <= self.stats.max_health * 2 / 3 {
-                    canvas.set_draw_color(Color::RGB(0xEE, 0xAA, 0x22));
-                } else {
-                    canvas.set_draw_color(Color::RGB(0x66, 0xCC, 0x33));
-                }
-                let health_rect_offset =
-                    health_rect_width * i + (TILE_STRIDE - self.stats.max_health * health_rect_width) / 2;
-                let health_rect = Rect::new(
-                    x + health_rect_offset + gap / 2,
-                    y - TILE_STRIDE / 8 - 2,
-                    (health_rect_width - gap) as u32,
-                    (TILE_STRIDE / 8) as u32,
-                );
-                let _ = canvas.fill_rect(health_rect);
+    pub fn draw_health<RT: RenderTarget>(&self, canvas: &mut Canvas<RT>, camera: &Camera) {
+        let animation = self.animation.borrow();
+        let x = self.x * TILE_STRIDE - camera.x + animation.offset_x;
+        let y = self.y * TILE_STRIDE - camera.y + animation.offset_y;
+
+        let gap = (4 - self.stats.max_health / 3).max(1);
+        let health_area_width = TILE_STRIDE - 20 + self.stats.max_health * 3;
+        let health_rect_width = health_area_width / self.stats.max_health;
+        canvas.set_blend_mode(BlendMode::Blend);
+        for i in 0..self.stats.max_health {
+            if i >= self.stats.health {
+                canvas.set_draw_color(Color::RGBA(0xAA, 0xAA, 0xAA, 0xAA));
+            } else if self.stats.health <= self.stats.max_health / 3 {
+                canvas.set_draw_color(Color::RGB(0xCC, 0x33, 0x22));
+            } else if self.stats.health <= self.stats.max_health * 2 / 3 {
+                canvas.set_draw_color(Color::RGB(0xEE, 0xAA, 0x22));
+            } else {
+                canvas.set_draw_color(Color::RGB(0x66, 0xCC, 0x33));
             }
+
+            let health_rect_offset =
+                health_rect_width * i + (TILE_STRIDE - self.stats.max_health * health_rect_width) / 2;
+            let mut health_rect = Rect::new(
+                x + health_rect_offset + gap / 2,
+                y - TILE_STRIDE / 8 - 2,
+                (health_rect_width - gap) as u32,
+                (TILE_STRIDE / 8) as u32,
+            );
+            let _ = canvas.fill_rect(health_rect);
+
+            canvas.set_draw_color(Color::RGBA(0x33, 0x33, 0x33, 0x44));
+            health_rect.offset(-1, -1);
+            health_rect.resize(health_rect.width() + 2, health_rect.height() + 2);
+            let _ = canvas.draw_rect(health_rect);
         }
     }
 

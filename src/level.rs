@@ -108,6 +108,8 @@ struct LevelAnimation {
 #[derive(Clone, Debug)]
 pub struct Level {
     pub spawns: Vec<FighterSpawn>,
+    pub line_of_sight_x: i32,
+    pub line_of_sight_y: i32,
     terrain: [Terrain; LEVEL_WIDTH * LEVEL_HEIGHT],
     rooms: Vec<Rect>,
 
@@ -345,10 +347,15 @@ impl Level {
         let exit_y = furthest_room.y as usize + 1 + (rng.next_u32() % (furthest_room.height() - 3)) as usize;
         terrain[exit_x + exit_y * LEVEL_WIDTH] = Terrain::Exit;
 
+        let line_of_sight_x = spawns[0].x;
+        let line_of_sight_y = spawns[0].y;
+
         Level {
             terrain,
             rooms,
             spawns,
+            line_of_sight_x,
+            line_of_sight_y,
             animation_state: RefCell::new(LevelAnimation::default()),
         }
     }
@@ -381,6 +388,76 @@ impl Level {
         }
     }
 
+    pub fn in_line_of_sight<RT: RenderTarget>(
+        &self,
+        x: i32,
+        y: i32,
+        canvas: &mut Canvas<RT>,
+        camera: &Camera,
+        show_debug: bool,
+    ) -> bool {
+        if x == self.line_of_sight_x && y == self.line_of_sight_y {
+            return true;
+        }
+
+        let (target_x, target_y) = (x as f32 + 0.5, y as f32 + 0.5);
+        let (mut cursor_x, mut cursor_y) = (self.line_of_sight_x as f32 + 0.5, self.line_of_sight_y as f32 + 0.5);
+        let dx = target_x - cursor_x;
+        let dy = target_y - cursor_y;
+        let dl = (dx * dx + dy * dy).sqrt();
+        let dx = dx / dl;
+        let dy = dy / dl;
+
+        if show_debug {
+            canvas.set_draw_color(Color::RGBA(
+                (0xDD as f32 + 0x11 as f32 * dx) as u8,
+                0xFF,
+                (0xDD as f32 + 0x11 as f32 * dy) as u8,
+                0x88,
+            ));
+        }
+
+        let mut iterations = 0;
+        while (((target_x - cursor_x) * dx).signum() == 1.0 || ((target_y - cursor_y) * dy).signum() == 1.0)
+            && iterations < 200
+        {
+            iterations += 1;
+            if show_debug {
+                let _ = canvas.draw_point(sdl2::rect::Point::new(
+                    (cursor_x * TILE_STRIDE as f32) as i32 - camera.x,
+                    (cursor_y * TILE_STRIDE as f32) as i32 - camera.y,
+                ));
+            }
+
+            let distance_to_next_x = if dx >= 0.0 {
+                1.0 - cursor_x.fract()
+            } else if cursor_x.fract() == 0.0 {
+                1.0
+            } else {
+                cursor_x.fract()
+            };
+            let distance_to_next_y = if dy >= 0.0 {
+                1.0 - cursor_y.fract()
+            } else if cursor_y.fract() == 0.0 {
+                1.0
+            } else {
+                cursor_y.fract()
+            };
+            let d = distance_to_next_x.min(distance_to_next_y) + 0.1;
+            cursor_x += dx * d;
+            cursor_y += dy * d;
+            let tile_x = cursor_x as i32;
+            let tile_y = cursor_y as i32;
+            if self.get_terrain(tile_x, tile_y).unwalkable() {
+                return false;
+            } else if tile_x == x && tile_y == y {
+                return true;
+            }
+        }
+
+        false
+    }
+
     pub fn animate(&self, delta_seconds: f32) {
         let mut animation = self.animation_state.borrow_mut();
         animation.door_openings.retain(|_, v| {
@@ -396,12 +473,32 @@ impl Level {
         camera: &Camera,
         above_layer: bool,
         show_debug: bool,
+        dark_fade: bool,
     ) {
         let offset_x = camera.x / TILE_STRIDE;
         let offset_y = camera.y / TILE_STRIDE;
         let (screen_width, screen_height) = canvas.output_size().unwrap();
         let tiles_x = screen_width as i32 / TILE_STRIDE + 2;
         let tiles_y = screen_height as i32 / TILE_STRIDE + 2;
+
+        // Precalculate line of sight (if needed)
+        let mut line_of_sight = Vec::with_capacity((tiles_x * tiles_y) as usize);
+        if above_layer {
+            for y in 0..tiles_y {
+                let tile_y = y + offset_y;
+                for x in 0..tiles_x {
+                    let tile_x = x + offset_x;
+                    line_of_sight.push(self.in_line_of_sight(tile_x, tile_y, canvas, camera, show_debug));
+                }
+            }
+        }
+        let in_line_of_sight = |x: i32, y: i32| {
+            if x < 0 || y < 0 || x >= tiles_x || y >= tiles_y {
+                false
+            } else {
+                line_of_sight[(x + y * tiles_x) as usize]
+            }
+        };
 
         for y in 0..tiles_y {
             let tile_y = y + offset_y;
@@ -426,8 +523,7 @@ impl Level {
                     // Closed doors
                     (Terrain::Door, _, Terrain::Wall, _, Terrain::Wall, _) => &[
                         (TileGraphic::Ground, 0, 0, NO_FLAGS),
-                        (TileGraphic::DoorClosed, 0, -TILE_STRIDE / 2, FLAG_SHDW),
-                        (TileGraphic::WallTop, TILE_STRIDE, -TILE_STRIDE, NO_FLAGS),
+                        (TileGraphic::DoorClosed, 0, -TILE_STRIDE / 2, NO_FLAGS),
                     ],
                     (Terrain::Door, Terrain::Wall, _, Terrain::Wall, _, _) => &[
                         (TileGraphic::Ground, 0, 0, NO_FLAGS),
@@ -440,7 +536,6 @@ impl Level {
                     (Terrain::DoorOpen, _, Terrain::Wall, _, Terrain::Wall, _) => &[
                         (TileGraphic::Ground, 0, 0, NO_FLAGS),
                         (TileGraphic::DoorOpen, 0, -TILE_STRIDE / 2, NO_FLAGS),
-                        (TileGraphic::WallTop, TILE_STRIDE, -TILE_STRIDE, NO_FLAGS),
                     ],
                     (Terrain::DoorOpen, Terrain::Wall, _, Terrain::Wall, _, _) => &[
                         (TileGraphic::Ground, 0, 0, NO_FLAGS),
@@ -480,6 +575,7 @@ impl Level {
                     (_, _, _, _, _, _) => &[],
                 };
 
+                // The actual tile rendering
                 for (mut tile, x_offset, mut y_offset, mut flags) in tiles.into_iter() {
                     if above_layer != tile.is_above() {
                         continue;
@@ -509,6 +605,40 @@ impl Level {
                     }
                 }
 
+                // Line of sight stuff
+                if above_layer {
+                    let mut current_tile_is_in_los = false;
+                    'los_check: for y_ in 0..=2 {
+                        for x_ in -1..=1 {
+                            if in_line_of_sight(x + x_, y + y_) {
+                                current_tile_is_in_los = true;
+                                break 'los_check;
+                            }
+                        }
+                    }
+                    if !current_tile_is_in_los {
+                        if dark_fade {
+                            canvas.set_draw_color(Color::RGB(0x22, 0x22, 0x33));
+                        } else {
+                            canvas.set_draw_color(Color::RGB(0x44, 0x44, 0x44));
+                        }
+                    } else if dark_fade {
+                        let dx = (tile_x - self.line_of_sight_x) as f32;
+                        let dy = (tile_y - self.line_of_sight_y) as f32;
+                        let alpha = (0xFF as f32 * ((dx * dx + dy * dy).sqrt() / 7.0).min(1.0).powf(2.0)) as u8;
+                        canvas.set_draw_color(Color::RGBA(0x22, 0x22, 0x33, alpha));
+                    }
+                    if !current_tile_is_in_los || dark_fade {
+                        let _ = canvas.fill_rect(Rect::new(
+                            tile_x * TILE_STRIDE - camera.x,
+                            tile_y * TILE_STRIDE - camera.y,
+                            TILE_STRIDE as u32,
+                            TILE_STRIDE as u32,
+                        ));
+                    }
+                }
+
+                // Debug rectangles
                 if show_debug && terrain.unwalkable() {
                     canvas.set_draw_color(Color::RGB(0xCC, 0x44, 0x11));
                     let _ = canvas.draw_rect(Rect::new(
