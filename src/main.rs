@@ -28,7 +28,7 @@
 //!   - Required to implement sentient metal's ranged attack
 //! - ~~Dungeon generation~~
 //!   - ~~Design: abstract map struct for arranging rooms, for minimap rendering~~
-//! - Level progression (level exits and difficulty curve)
+//! - ~~Level progression (level exits and difficulty curve)~~
 //! - Line of sight
 //! - Player death handling, game over UI
 //! - Stat increases at the start of each level
@@ -209,14 +209,18 @@ pub fn main() {
                         Keycode::D | Keycode::L | Keycode::Right => Some(DungeonEvent::MoveRight),
                         _ => None,
                     };
-                    if let Some(event) = event {
-                        dungeon.run_event(event);
-                        dungeon.run_event(DungeonEvent::ProcessTurn);
+                    if dungeon.can_run_events() {
+                        if let Some(event) = event {
+                            dungeon.run_event(event);
+                            dungeon.run_event(DungeonEvent::ProcessTurn);
+                        }
                     }
                 }
                 _ => {}
             }
         }
+
+        dungeon.try_load_next_level(false);
 
         if should_move {
             log::info!("TODO: Player should pathfind to mouse now");
@@ -233,7 +237,7 @@ pub fn main() {
 
         dungeon.level().animate(delta_seconds);
         for fighter in dungeon.fighters() {
-            fighter.animate(delta_seconds);
+            fighter.animate(delta_seconds, dungeon.level());
         }
 
         if let Some(new_position) = dungeon.level().room_center_in_pixel_space(dungeon.player().position()) {

@@ -80,6 +80,7 @@ pub enum Terrain {
     Wall,
     Door,
     DoorOpen,
+    Exit,
 }
 
 impl Terrain {
@@ -93,9 +94,7 @@ impl Terrain {
 
     pub const fn enemies_avoid(self) -> bool {
         match self {
-            Terrain::Door => true,
-            Terrain::DoorOpen => true,
-            Terrain::Empty => true,
+            Terrain::Door | Terrain::DoorOpen | Terrain::Empty | Terrain::Exit => true,
             _ => false,
         }
     }
@@ -125,7 +124,7 @@ impl PartialEq for Level {
 }
 
 impl Level {
-    pub fn new(rng: &mut Pcg32) -> Level {
+    pub fn new(rng: &mut Pcg32, difficulty: u32) -> Level {
         let mut terrain = [Terrain::Empty; LEVEL_WIDTH * LEVEL_HEIGHT];
         let mut rooms = Vec::new();
 
@@ -309,7 +308,6 @@ impl Level {
             start_room.y + start_room.height() as i32 / 2,
         ));
 
-        let difficulty = 0;
         for room in rooms.iter().skip(1) {
             let mut occupied_spots = Vec::new();
             let spawned_enemies = room.width() / 3 + rng.next_u32() % (3 + difficulty / 2);
@@ -334,6 +332,18 @@ impl Level {
                 occupied_spots.push((x, y));
             }
         }
+
+        let start_room_center_x = start_room_x + start_room_width as i32 / 2;
+        let start_room_center_y = start_room_y + start_room_height as i32 / 2;
+        rooms.sort_unstable_by_key(|room| {
+            let dx = room.x + room.width() as i32 / 2 - start_room_center_x;
+            let dy = room.y + room.height() as i32 / 2 - start_room_center_y;
+            dx * dx + dy * dy
+        });
+        let furthest_room = rooms.iter().nth_back(0).unwrap();
+        let exit_x = furthest_room.x as usize + 1 + (rng.next_u32() % (furthest_room.width() - 2)) as usize;
+        let exit_y = furthest_room.y as usize + 1 + (rng.next_u32() % (furthest_room.height() - 3)) as usize;
+        terrain[exit_x + exit_y * LEVEL_WIDTH] = Terrain::Exit;
 
         Level {
             terrain,
@@ -465,6 +475,7 @@ impl Level {
                         (TileGraphic::CornerShadowTopLeft, 0, 0, NO_FLAGS),
                     ],
                     (Terrain::Floor, _, _, _, _, _) => &[(TileGraphic::Ground, 0, 0, NO_FLAGS)],
+                    (Terrain::Exit, _, _, _, _, _) => &[(TileGraphic::LevelExit, 0, 0, NO_FLAGS)],
 
                     (_, _, _, _, _, _) => &[],
                 };

@@ -74,10 +74,22 @@ impl Fighter {
         Point::new(self.x, self.y)
     }
 
-    pub fn animate(&self, delta_time: f32) {
+    pub fn is_animating(&self) -> bool {
+        self.animation.borrow().move_progress > 0.0
+    }
+
+    pub fn animate(&self, delta_time: f32, level: &Level) {
+        let exit_animation = level.get_terrain(self.x, self.y) == Terrain::Exit;
         let mut animation = self.animation.borrow_mut();
+
         if animation.move_progress > 0.0 {
-            let duration = if self.stats.flying { 0.3 } else { 0.15 };
+            let duration = if exit_animation {
+                0.35
+            } else if self.stats.flying {
+                0.3
+            } else {
+                0.15
+            };
             animation.move_progress = (animation.move_progress - delta_time / duration).max(0.0);
 
             let dx = animation.move_from_x - self.x;
@@ -117,6 +129,18 @@ impl Fighter {
         }
         animation.offset_y +=
             (((animation.flying_time * 4.0).cos() - 1.0) * 8.0 * (1.0 - animation.descent_progress)) as i32;
+
+        let scale = if exit_animation {
+            animation.move_progress.min(1.0).sqrt()
+        } else {
+            1.0
+        };
+        let new_width_inc = (TILE_STRIDE as f32 + animation.width_inc as f32) * scale - TILE_STRIDE as f32;
+        animation.offset_x += ((animation.width_inc as f32 - new_width_inc) / 2.0) as i32;
+        animation.width_inc = new_width_inc as i32;
+        let new_height_inc = (TILE_STRIDE as f32 + animation.height_inc as f32) * scale - TILE_STRIDE as f32;
+        animation.offset_y += ((animation.height_inc as f32 - new_height_inc) / 2.0) as i32;
+        animation.height_inc = new_height_inc as i32;
     }
 
     pub fn step(

@@ -1,6 +1,6 @@
 // TODO: DungeonEvents (and DungeonSaves) should be versioned.
 
-use crate::{EnemyAi, Fighter, FighterSpawn, GameLog, Level};
+use crate::{EnemyAi, Fighter, FighterSpawn, GameLog, Level, Terrain};
 use rand_core::SeedableRng;
 use rand_pcg::Pcg32;
 use serde::{Deserialize, Serialize};
@@ -20,7 +20,8 @@ pub enum DungeonEvent {
 struct DungeonState {
     rng: Pcg32,
     log: GameLog,
-    level: Level,
+    levels: Vec<Level>,
+    current_level: usize,
     fighters: Vec<Fighter>,
     ais: Vec<Option<EnemyAi>>,
     round: u64,
@@ -31,21 +32,26 @@ impl DungeonState {
     pub fn new(seed: u64) -> DungeonState {
         let mut rng = Pcg32::seed_from_u64(seed);
         let log = GameLog::new();
-        let level = Level::new(&mut rng);
+        let mut levels = Vec::new();
+        for difficulty in 0..4 {
+            levels.push(Level::new(&mut rng, difficulty));
+        }
+
         let mut state = DungeonState {
             rng,
             log,
-            level,
+            levels,
+            current_level: 0,
             fighters: Vec::new(),
             ais: Vec::new(),
             round: 1,
-            level_changed: true,
+            level_changed: false,
         };
-        debug_assert!(!state.level.spawns.is_empty());
 
-        for spawn in state.level.spawns.clone() {
-            state.spawn_fighter(spawn);
+        for level in &state.levels {
+            debug_assert!(!level.spawns.is_empty());
         }
+        state.load_level();
 
         state
     }
@@ -69,7 +75,7 @@ impl DungeonState {
             dx,
             dy,
             &mut self.fighters,
-            &mut self.level,
+            &mut self.levels[self.current_level],
             &mut self.rng,
             &mut self.log,
             self.round,
@@ -90,7 +96,7 @@ impl DungeonState {
                 ai.process(
                     &mut current_fighter,
                     &mut self.fighters,
-                    &mut self.level,
+                    &mut self.levels[self.current_level],
                     &mut self.rng,
                     &mut self.log,
                     self.round,
@@ -103,6 +109,15 @@ impl DungeonState {
         }
         self.round += 1;
         self.level_changed = false;
+    }
+
+    pub fn load_level(&mut self) {
+        self.fighters.clear();
+        self.ais.clear();
+        self.level_changed = true;
+        for spawn in self.levels[self.current_level].spawns.clone() {
+            self.spawn_fighter(spawn);
+        }
     }
 }
 
@@ -138,6 +153,7 @@ impl Dungeon {
         };
         for event in &save.events {
             dungeon.run_event(*event);
+            dungeon.try_load_next_level(true);
         }
         Ok(dungeon)
     }
@@ -176,8 +192,22 @@ impl Dungeon {
         }
     }
 
+    pub fn can_run_events(&self) -> bool {
+        let player = &self.state.fighters[0];
+        self.state.levels[self.state.current_level].get_terrain(player.x, player.y) != Terrain::Exit
+    }
+
+    pub fn try_load_next_level(&mut self, skip_animation: bool) {
+        let player = &self.state.fighters[0];
+        let on_exit = self.state.levels[self.state.current_level].get_terrain(player.x, player.y) == Terrain::Exit;
+        if on_exit && (!player.is_animating() || skip_animation) {
+            self.state.current_level += 1;
+            self.state.load_level();
+        }
+    }
+
     pub fn level(&self) -> &Level {
-        &self.state.level
+        &self.state.levels[self.state.current_level]
     }
 
     pub fn fighters(&self) -> &[Fighter] {

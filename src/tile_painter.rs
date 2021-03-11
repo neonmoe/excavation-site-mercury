@@ -34,6 +34,7 @@ pub enum TileGraphic {
     DeadRockman,
     SentientMetal,
     DeadSentientMetal,
+    LevelExit,
 }
 
 impl TileGraphic {
