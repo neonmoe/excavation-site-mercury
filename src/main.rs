@@ -18,29 +18,32 @@
 //! - ~~Entity/mover/mob base~~
 //! - ~~On-screen log and localization~~
 //! - ~~Enemy graphics and AI design~~
-//!   - ~~Design: easiest enemy~~ (Classic slime enemy, only moves when attacked, towards attack.)
-//!   - ~~Design: easy enemy~~ (Big insect? Grown in low gravity. Moves randomly, backs off when attacked.)
-//!   - ~~Design: hard enemy~~ (Rock person. Hunts player until at low health, then backs to top-right corner.)
+//!   - ~~Design: easiest enemy (Classic slime enemy, only moves when attacked, towards attack.)~~
+//!   - ~~Design: easy enemy (Big insect? Grown in low gravity. Moves randomly, backs off when attacked.)~~
+//!   - ~~Design: hard enemy (Rock person. Hunts player until at low health, then backs to top-right corner.)~~
 //!   - ~~Design: hardest enemy~~ (Flying bits of metal, very menacing. Hits in a + shape every 3 turns, avoids the player.)
+//! - ~~Easy enemy AI implementations (slime, roach, rockman)~~
 //! - ~~Fighter stats inspection UI~~
-//! - Enemy AI implementations (~~slime~~, ~~roach~~, ~~rockman~~, sentient metal)
-//! - Attack effects
-//!   - Required to implement sentient metal's ranged attack
 //! - ~~Dungeon generation~~
 //!   - ~~Design: abstract map struct for arranging rooms, for minimap rendering~~
 //! - ~~Level progression (level exits and difficulty curve)~~
 //! - ~~Line of sight~~
 //! - Player death handling, game over UI
 //! - Stat increases at the start of each level
-//! - Items
-//!   - Design: item storage, use, pickup UI
+//! - Treasure UI and treasure tiles
 //! - Locked rooms with treasure, openable with the Finger stat
-//! - Hazard rooms to get treasure or circumvent enemies
+//! - Hazard rooms to get treasure
 //!   - Design: hazard + challenged stat combinations (Brain is still useless)
-//!   - Design: dungeon generation rules to allow skipping enemy rooms
+//! - Attack effects
+//!   - Required to implement sentient metal's ranged attack
+//! - Sentient Metal AI
+//! - Different types of wall and floor for 3rd and 4th levels
+//! - Final treasure for the end of the 4th level, and run finish UI
 //!
 //! And here's some "polish" features I'll add if I have the time:
 //!
+//! - Items
+//!   - Design: item storage, use, pickup UI
 //! - Culling the zipped binary to <1MiB
 //!   - Fonts have way too many glyphs, probably fixable with: https://github.com/fonttools/fonttools
 //! - Quicksaves to the proper directory
@@ -53,6 +56,8 @@
 //! - Sound effects
 //! - Background loop (music or ambient sfx)
 //! - Mouse control (pathfinding)
+//! - Leaderboard for comparing treasure scores
+//! - Saving and loading UI
 
 use fontdue::layout::LayoutSettings;
 use sdl2::event::Event;
