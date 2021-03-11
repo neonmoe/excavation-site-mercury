@@ -7,7 +7,6 @@ use sdl2::pixels::Color;
 use sdl2::rect::{Point, Rect};
 use sdl2::render::{BlendMode, Canvas, RenderTarget};
 use std::cell::RefCell;
-use std::f32::consts::PI;
 
 #[derive(Clone, Debug, Default)]
 struct Animation {
@@ -71,28 +70,32 @@ impl Fighter {
         }
     }
 
+    pub fn position(&self) -> Point {
+        Point::new(self.x, self.y)
+    }
+
     pub fn animate(&self, delta_time: f32) {
         let mut animation = self.animation.borrow_mut();
         if animation.move_progress > 0.0 {
-            let duration = if self.stats.flying { 0.2 } else { 0.15 };
+            let duration = if self.stats.flying { 0.3 } else { 0.15 };
             animation.move_progress = (animation.move_progress - delta_time / duration).max(0.0);
 
             let dx = animation.move_from_x - self.x;
             let dy = animation.move_from_y - self.y;
-            animation.offset_x = ((dx as f32 * animation.move_progress) * TILE_STRIDE as f32) as i32;
-            animation.offset_y = ((dy as f32 * animation.move_progress) * TILE_STRIDE as f32) as i32;
+            animation.offset_x = ((dx as f32 * animation.move_progress.min(1.0)) * TILE_STRIDE as f32) as i32;
+            animation.offset_y = ((dy as f32 * animation.move_progress.min(1.0)) * TILE_STRIDE as f32) as i32;
 
             if !self.stats.flying {
                 // This function goes up a little bit, then down a bit more, then up a little bit again.
                 // Kinda like the shape of M, except the middle dip is deeper than the two peaks.
-                let f = |x: f32| 1.0 + ((2.7 * PI * x - 1.85 * PI).sin() - 0.5) * 0.025;
+                let f = |x: f32| 1.0 + (x * (4.0 - 4.0 * x)) * 0.05;
 
-                let move_squish_width_ratio = f(animation.move_progress);
+                let move_squish_width_ratio = f(animation.move_progress.min(1.0));
                 animation.width_inc = (TILE_STRIDE as f32 * move_squish_width_ratio) as i32 - TILE_STRIDE;
                 animation.height_inc = (TILE_STRIDE as f32 / move_squish_width_ratio) as i32 - TILE_STRIDE;
                 animation.offset_x -= (animation.width_inc) / 2;
-                animation.offset_y -= (animation.height_inc) / 2
-                    + ((1.0 - move_squish_width_ratio).max(0.0) * 2.0 * TILE_STRIDE as f32) as i32;
+                animation.offset_y -=
+                    (animation.height_inc) / 2 + ((move_squish_width_ratio - 1.0) * 6.0 * TILE_STRIDE as f32) as i32;
             }
         } else {
             animation.move_from_x = self.x;
@@ -113,7 +116,7 @@ impl Fighter {
             animation.descent_progress = (animation.descent_progress + delta_time * 2.0).min(1.0);
         }
         animation.offset_y +=
-            (((animation.flying_time * 4.0).sin() - 1.0) * 8.0 * (1.0 - animation.descent_progress)) as i32;
+            (((animation.flying_time * 4.0).cos() - 1.0) * 8.0 * (1.0 - animation.descent_progress)) as i32;
     }
 
     pub fn step(
@@ -146,10 +149,13 @@ impl Fighter {
             level.open_door(new_x, new_y);
         }
 
+        let nth_fighter = fighters.iter().position(|f| f.stats == stats::DUMMY).unwrap_or(0);
+        let anim_offset = nth_fighter as f32 / fighters.len() as f32;
+
         let mut animation = self.animation.borrow_mut();
         animation.move_from_x = self.x;
         animation.move_from_y = self.y;
-        animation.move_progress = 1.0;
+        animation.move_progress = 1.0 + anim_offset;
         if dx < 0 {
             animation.flip_h = true;
         } else if dx > 0 {
@@ -240,7 +246,7 @@ impl Fighter {
             let x = self.x * TILE_STRIDE - camera.x + animation.offset_x;
             let y = self.y * TILE_STRIDE - camera.y + animation.offset_y;
             if is_dead {
-                tile_painter.draw_tile(canvas, tile.dead(), x, y, false, false);
+                tile_painter.draw_tile(canvas, tile.dead(), x, y, animation.flip_h, false);
             } else {
                 let w = (TILE_STRIDE + animation.width_inc) as u32;
                 let h = (TILE_STRIDE + animation.height_inc) as u32;

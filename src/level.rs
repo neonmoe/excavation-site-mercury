@@ -1,14 +1,77 @@
-use crate::{Camera, TileGraphic, TilePainter, TILE_STRIDE};
+use crate::{enemy_ai, stats, Camera, EnemyAi, Name, Stats, TileGraphic, TilePainter, TILE_STRIDE};
 use rand_core::RngCore;
 use rand_pcg::Pcg32;
 use sdl2::pixels::Color;
-use sdl2::rect::Rect;
+use sdl2::rect::{Point, Rect};
 use sdl2::render::{Canvas, RenderTarget};
 use std::cell::RefCell;
 use std::collections::HashMap;
 
 const LEVEL_WIDTH: usize = 128;
 const LEVEL_HEIGHT: usize = 128;
+
+pub const SPAWN_PLAYER: FighterSpawn = FighterSpawn {
+    name: Name::Astronaut,
+    tile: TileGraphic::Player,
+    stats: stats::PLAYER,
+    ai: None,
+    x: 0,
+    y: 0,
+};
+
+pub const SPAWN_SLIME: FighterSpawn = FighterSpawn {
+    name: Name::Slime,
+    tile: TileGraphic::Slime,
+    stats: stats::SLIME,
+    ai: Some(enemy_ai::SLIME),
+    x: 0,
+    y: 0,
+};
+
+pub const SPAWN_ROACH: FighterSpawn = FighterSpawn {
+    name: Name::Roach,
+    tile: TileGraphic::Roach,
+    stats: stats::ROACH,
+    ai: Some(enemy_ai::ROACH),
+    x: 0,
+    y: 0,
+};
+
+pub const SPAWN_ROCKMAN: FighterSpawn = FighterSpawn {
+    name: Name::Rockman,
+    tile: TileGraphic::Rockman,
+    stats: stats::ROCKMAN,
+    ai: Some(enemy_ai::ROCKMAN),
+    x: 0,
+    y: 0,
+};
+
+pub const SPAWN_SENTIENT_METAL: FighterSpawn = FighterSpawn {
+    name: Name::SentientMetal,
+    tile: TileGraphic::SentientMetal,
+    stats: stats::SENTIENT_METAL,
+    ai: Some(enemy_ai::SENTIENT_METAL),
+    x: 0,
+    y: 0,
+};
+
+#[derive(Clone, Debug)]
+pub struct FighterSpawn {
+    pub name: Name,
+    pub tile: TileGraphic,
+    pub stats: Stats,
+    pub ai: Option<EnemyAi>,
+    pub x: i32,
+    pub y: i32,
+}
+
+impl FighterSpawn {
+    const fn at_position(mut self, x: i32, y: i32) -> Self {
+        self.x = x;
+        self.y = y;
+        self
+    }
+}
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Terrain {
@@ -27,6 +90,15 @@ impl Terrain {
             _ => false,
         }
     }
+
+    pub const fn enemies_avoid(self) -> bool {
+        match self {
+            Terrain::Door => true,
+            Terrain::DoorOpen => true,
+            Terrain::Empty => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Default, Clone, Debug)]
@@ -36,7 +108,9 @@ struct LevelAnimation {
 
 #[derive(Clone, Debug)]
 pub struct Level {
+    pub spawns: Vec<FighterSpawn>,
     terrain: [Terrain; LEVEL_WIDTH * LEVEL_HEIGHT],
+    rooms: Vec<Rect>,
 
     /// Intended to only be used in the drawing functions, mutated by
     /// `.animate()`. In a RefCell, because this is "stateful" per
@@ -53,39 +127,231 @@ impl PartialEq for Level {
 impl Level {
     pub fn new(rng: &mut Pcg32) -> Level {
         let mut terrain = [Terrain::Empty; LEVEL_WIDTH * LEVEL_HEIGHT];
+        let mut rooms = Vec::new();
 
-        let x0 = 1;
-        let y0 = 1;
-        let x1 = 8 + rng.next_u32() as usize % 8;
-        let y1 = 8 + rng.next_u32() as usize % 5;
-        for y in y0..=y1 {
-            for x in x0..=x1 {
-                terrain[x + y * LEVEL_WIDTH] = if (x == (x1 + x0) / 2 && y == y0) || (x == x1 && y == (y1 + y0) / 2) {
-                    if cfg!(debug_assertions) {
-                        print!("+");
-                    }
-                    Terrain::Door
-                } else if x == x0 || x == x1 || y == y0 || y == y1 {
-                    if cfg!(debug_assertions) {
-                        print!("#");
-                    }
-                    Terrain::Wall
-                } else {
-                    if cfg!(debug_assertions) {
-                        print!(".");
-                    }
-                    Terrain::Floor
-                };
+        fn terrain_mut(
+            terrain: &mut [Terrain; LEVEL_WIDTH * LEVEL_HEIGHT],
+            x: i32,
+            y: i32,
+        ) -> Result<&mut Terrain, ()> {
+            if x >= 0 && x < LEVEL_WIDTH as i32 && y >= 0 && y < LEVEL_HEIGHT as i32 {
+                Ok(&mut terrain[x as usize + y as usize * LEVEL_WIDTH])
+            } else {
+                Err(())
             }
-            if cfg!(debug_assertions) {
-                println!("");
+        }
+
+        fn put_room(terrain: &mut [Terrain; LEVEL_WIDTH * LEVEL_HEIGHT], room: Rect) -> Result<(), ()> {
+            let terrain_rect = Rect::new(0, 0, LEVEL_WIDTH as u32, LEVEL_HEIGHT as u32);
+            if terrain_rect.contains_rect(room) {
+                // Ensure the floor space is empty
+                for y in room.top()..room.bottom() {
+                    for x in room.left()..room.right() {
+                        if *terrain_mut(terrain, x, y)? != Terrain::Empty {
+                            return Err(());
+                        }
+                    }
+                }
+
+                // Ensure there aren't walls that would result in double-wide walls
+                let mut consecutive_walls = 0;
+                for y in &[room.top() - 2, room.bottom() + 1] {
+                    for x in room.left() - 1..=room.right() {
+                        if let Ok(&mut Terrain::Wall) = terrain_mut(terrain, x, *y) {
+                            consecutive_walls += 1;
+                            if consecutive_walls >= 2 {
+                                return Err(());
+                            }
+                        } else {
+                            consecutive_walls = 0;
+                        }
+                    }
+                }
+                consecutive_walls = 0;
+                for x in &[room.left() - 2, room.right() + 1] {
+                    for y in room.top() - 1..=room.bottom() {
+                        if let Ok(&mut Terrain::Wall) = terrain_mut(terrain, *x, y) {
+                            consecutive_walls += 1;
+                            if consecutive_walls >= 2 {
+                                return Err(());
+                            }
+                        } else {
+                            consecutive_walls = 0;
+                        }
+                    }
+                }
+
+                // Add the room tiles
+                for y in room.top() - 1..=room.bottom() {
+                    for x in room.left() - 1..=room.right() {
+                        if x == room.left() - 1 || x == room.right() || y == room.top() - 1 || y == room.bottom() {
+                            *terrain_mut(terrain, x, y)? = Terrain::Wall;
+                        } else {
+                            *terrain_mut(terrain, x, y)? = Terrain::Floor;
+                        }
+                    }
+                }
+
+                Ok(())
+            } else {
+                Err(())
+            }
+        }
+
+        fn add_doors(
+            rng: &mut Pcg32,
+            terrain: &mut [Terrain; LEVEL_WIDTH * LEVEL_HEIGHT],
+            rooms: &[Rect],
+            room: Rect,
+            dry_run: bool,
+        ) -> Result<(), ()> {
+            for neighbor in rooms {
+                let shared_top = neighbor.top().max(room.top()) + 1;
+                let shared_bottom = neighbor.bottom().min(room.bottom()) - 2;
+                if shared_top < shared_bottom {
+                    let y = (rng.next_u32() % (shared_bottom - shared_top) as u32) as i32 + shared_top;
+                    if neighbor.right() == room.left() - 1 {
+                        if dry_run {
+                            return Ok(());
+                        } else {
+                            terrain[neighbor.right() as usize + y as usize * LEVEL_WIDTH] = Terrain::Door;
+                        }
+                    } else if neighbor.left() - 1 == room.right() {
+                        if dry_run {
+                            return Ok(());
+                        } else {
+                            terrain[room.right() as usize + y as usize * LEVEL_WIDTH] = Terrain::Door;
+                        }
+                    }
+                }
+
+                let shared_left = neighbor.left().max(room.left()) + 1;
+                let shared_right = neighbor.right().min(room.right()) - 1;
+                if shared_left < shared_right {
+                    let x = (rng.next_u32() % (shared_right - shared_left) as u32) as i32 + shared_left;
+                    if neighbor.bottom() == room.top() - 1 {
+                        if dry_run {
+                            return Ok(());
+                        } else {
+                            terrain[x as usize + neighbor.bottom() as usize * LEVEL_WIDTH] = Terrain::Door;
+                        }
+                    } else if neighbor.top() - 1 == room.bottom() {
+                        if dry_run {
+                            return Ok(());
+                        } else {
+                            terrain[x as usize + room.bottom() as usize * LEVEL_WIDTH] = Terrain::Door;
+                        }
+                    }
+                }
+            }
+
+            if dry_run {
+                Err(())
+            } else {
+                Ok(())
+            }
+        }
+
+        let start_room_width = 8;
+        let start_room_height = 5;
+        let start_room_x = (LEVEL_WIDTH as u32 - start_room_width) as i32 / 2;
+        let start_room_y = (LEVEL_HEIGHT as u32 - start_room_height) as i32 / 2;
+        let start_room = Rect::new(start_room_x, start_room_y, start_room_width, start_room_height);
+        put_room(&mut terrain, start_room).unwrap();
+        rooms.push(start_room);
+
+        let mut iterations = 0;
+        while rooms.len() < 8 && iterations < 10_000 {
+            iterations += 1;
+
+            let originating_room = rooms[rng.next_u32() as usize % rooms.len()];
+            let new_room_width = 4 + (rng.next_u32() % 5);
+            let new_room_height = 4 + (rng.next_u32() % 2);
+            let (dx, dy) = match rng.next_u32() % 4 {
+                0 => (1, 0),
+                1 => (-1, 0),
+                2 => (0, 1),
+                3 => (0, -1),
+                _ => unreachable!(),
+            };
+
+            let new_room_x = if dx < 0 {
+                originating_room.left() - new_room_width as i32 - 1
+            } else if dx > 0 {
+                originating_room.right() + 1
+            } else {
+                originating_room.left() + (rng.next_u32() % (originating_room.width() + new_room_width - 2)) as i32
+                    - new_room_width as i32
+                    + 1
+            };
+
+            let new_room_y = if dy < 0 {
+                originating_room.top() - new_room_height as i32 - 1
+            } else if dy > 0 {
+                originating_room.bottom() + 1
+            } else {
+                originating_room.top() + (rng.next_u32() % (originating_room.height() + new_room_height - 2)) as i32
+                    - new_room_height as i32
+                    + 1
+            };
+
+            let new_room = Rect::new(new_room_x, new_room_y, new_room_width, new_room_height);
+            let door_spots_available = add_doors(rng, &mut terrain, &rooms, new_room, true).is_ok();
+            if door_spots_available && put_room(&mut terrain, new_room).is_ok() {
+                let _ = add_doors(rng, &mut terrain, &rooms, new_room, false);
+                rooms.push(new_room);
+            }
+        }
+
+        let mut spawns = Vec::new();
+        spawns.push(SPAWN_PLAYER.at_position(
+            start_room.x + start_room.width() as i32 / 2,
+            start_room.y + start_room.height() as i32 / 2,
+        ));
+
+        let difficulty = 0;
+        for room in rooms.iter().skip(1) {
+            let mut occupied_spots = Vec::new();
+            let spawned_enemies = room.width() / 3 + rng.next_u32() % (3 + difficulty / 2);
+            'spawn_loop: for _ in 0..spawned_enemies {
+                let x = (rng.next_u32() % room.width()) as i32 + room.x;
+                let y = (rng.next_u32() % (room.height() - 1)) as i32 + room.y;
+
+                for (x_, y_) in &occupied_spots {
+                    if x == *x_ && y == *y_ {
+                        continue 'spawn_loop;
+                    }
+                }
+
+                let spawn = match rng.next_u32() % 10 + difficulty * 3 {
+                    0..=7 => SPAWN_SLIME,
+                    8..=12 => SPAWN_ROACH,
+                    13..=15 => SPAWN_ROCKMAN,
+                    16..=17 => SPAWN_SENTIENT_METAL,
+                    _ => SPAWN_ROCKMAN,
+                };
+                spawns.push(spawn.at_position(x, y));
+                occupied_spots.push((x, y));
             }
         }
 
         Level {
             terrain,
+            rooms,
+            spawns,
             animation_state: RefCell::new(LevelAnimation::default()),
         }
+    }
+
+    pub fn room_center_in_pixel_space(&self, in_room_point: Point) -> Option<Point> {
+        for room in &self.rooms {
+            if room.contains_point(in_room_point) {
+                let x = room.x * TILE_STRIDE + room.width() as i32 * TILE_STRIDE / 2;
+                let y = room.y * TILE_STRIDE + room.height() as i32 * TILE_STRIDE / 2 - TILE_STRIDE;
+                return Some(Point::new(x, y));
+            }
+        }
+        None
     }
 
     pub fn open_door(&mut self, x: i32, y: i32) {

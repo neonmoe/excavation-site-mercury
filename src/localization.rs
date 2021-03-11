@@ -10,6 +10,7 @@ pub enum Language {
 #[derive(Clone, PartialEq, Debug)]
 pub enum Name {
     UserInput(String),
+    Astronaut,
     Dummy,
     Slime,
     Roach,
@@ -25,6 +26,10 @@ impl Name {
 
         match self {
             Name::UserInput(s) => s.clone(),
+            Name::Astronaut => match language {
+                Language::Debug => unreachable!(),
+                Language::English => String::from("Astronaut"),
+            },
             Name::Dummy => match language {
                 Language::Debug => unreachable!(),
                 Language::English => String::from("Dummy"),

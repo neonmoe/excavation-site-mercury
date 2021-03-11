@@ -50,7 +50,7 @@ impl EnemyAi {
             return;
         }
 
-        let mut random_walk = |fighter: &mut Fighter, fighters: &mut [Fighter], level: &mut Level| {
+        let mut random_walk = |rng: &mut Pcg32, fighter: &mut Fighter, fighters: &mut [Fighter], level: &mut Level| {
             let d = (rng.next_u32() % 4) as i32;
             let (dx, dy) = match d {
                 0 => (1, 0),
@@ -61,9 +61,15 @@ impl EnemyAi {
             };
             let new_x = fighter.x + dx;
             let new_y = fighter.y + dy;
-            let enemy_in_way = fighters.iter().skip(1).find(|f| f.x == new_x && f.y == new_y).is_some();
-            let door_in_way = level.get_terrain(new_x, new_y) == Terrain::Door;
-            if !enemy_in_way && !door_in_way {
+            let enemy_in_way = fighters
+                .iter()
+                .skip(1)
+                .filter(|f| f.stats.health > 0)
+                .find(|f| f.x == new_x && f.y == new_y)
+                .is_some();
+            let avoided = level.get_terrain(new_x, new_y).enemies_avoid();
+            let would_move_behind_wall = dy > 0 && level.get_terrain(new_x, new_y + 1) == Terrain::Wall;
+            if !enemy_in_way && !avoided && !would_move_behind_wall {
                 fighter.step(dx, dy, fighters, level, rng, log, round);
             }
         };
@@ -79,9 +85,11 @@ impl EnemyAi {
                     } else {
                         *was_attacked = true;
                     }
+                } else if round % (1 + rng.next_u32() as u64 % 20) == 0 {
+                    random_walk(rng, fighter, fighters, level);
                 }
             }
-            Personality::Skitterer => random_walk(fighter, fighters, level),
+            Personality::Skitterer => random_walk(rng, fighter, fighters, level),
             Personality::Hunter { distance } => {
                 let player = &fighters[0];
                 let (dx, dy) = (player.x - fighter.x, player.y - fighter.y);
@@ -93,7 +101,7 @@ impl EnemyAi {
                         fighter.step(dx.signum(), 0, fighters, level, rng, log, round);
                     }
                 } else if pd > distance && round % 2 == 0 {
-                    random_walk(fighter, fighters, level);
+                    random_walk(rng, fighter, fighters, level);
                 }
             }
             Personality::Tower { attack_interval } => {

@@ -25,6 +25,7 @@ impl GameLog {
         let margin = 10;
         let log_width = width - margin * 2;
         let log_height = 16 * 12;
+        // TODO: Hide the log after no activity for N rounds
         let background_rect = Rect::new(
             width - (log_width + margin),
             height - (log_height + margin),
@@ -60,7 +61,7 @@ impl GameLog {
             localized_texts.extend(message.localize(Language::English).into_iter());
         }
 
-        canvas.set_draw_color(Color::RGBA(0x22, 0x22, 0x22, 0xDD));
+        canvas.set_draw_color(Color::RGBA(0x44, 0x44, 0x44, 0xAA));
         let _ = canvas.fill_rect(background_rect);
 
         canvas.set_clip_rect(background_rect);

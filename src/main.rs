@@ -26,8 +26,10 @@
 //! - Enemy AI implementations (~~slime~~, ~~roach~~, ~~rockman~~, sentient metal)
 //! - Attack effects
 //!   - Required to implement sentient metal's ranged attack
-//! - Dungeon generation
-//!   - Design: abstract map struct for arranging rooms, for minimap rendering
+//! - ~~Dungeon generation~~
+//!   - ~~Design: abstract map struct for arranging rooms, for minimap rendering~~
+//! - Level progression (level exits and difficulty curve)
+//! - Line of sight
 //! - Player death handling, game over UI
 //! - Stat increases at the start of each level
 //! - Items
@@ -41,6 +43,8 @@
 //!
 //! - Culling the zipped binary to <1MiB
 //!   - Fonts have way too many glyphs, probably fixable with: https://github.com/fonttools/fonttools
+//! - Quicksaves to the proper directory
+//! - UI for saving and loading
 //! - Better hop animation, attack animation, defend animation, dying animation
 //!   - Design: generic animation struct
 //! - Main menu
@@ -63,7 +67,7 @@ pub use text_painter::{Font, Text, TextPainter};
 mod tile_painter;
 pub use tile_painter::{TileGraphic, TilePainter, TILE_STRIDE};
 mod level;
-pub use level::{Level, Terrain};
+pub use level::{FighterSpawn, Level, Terrain};
 mod dungeon;
 pub use dungeon::{Dungeon, DungeonEvent};
 mod fighter;
@@ -95,20 +99,36 @@ pub fn main() {
         .allow_highdpi()
         .build()
         .unwrap();
+
     let mut canvas = window.into_canvas().present_vsync().build().unwrap();
     let texture_creator = canvas.texture_creator();
     let mut text_painter = TextPainter::new(&texture_creator).unwrap();
     let mut tile_painter = TilePainter::new(&texture_creator).unwrap();
+
     let mut dungeon = Dungeon::new((Instant::now() - initialization_start).subsec_nanos() as u64);
     let mut camera = Camera::new();
+    let mut camera_position = dungeon
+        .level()
+        .room_center_in_pixel_space(dungeon.player().position())
+        .unwrap();
+
     let mut show_debug = false;
     let mut mouse = Point::new(0, 0);
     let mut selected_fighter = None;
+
     log::info!("Game startup took {:?}.", Instant::now() - initialization_start);
 
     let mut frame_times = Vec::new();
     let mut event_pump = sdl_context.event_pump().unwrap();
     'running: loop {
+        let mut fts = frame_times.iter();
+        let delta_seconds = if let (Some(latest), Some(previous)) = (fts.nth_back(0), fts.nth_back(0)) {
+            let frame_duration: Duration = *latest - *previous;
+            frame_duration.as_secs_f32()
+        } else {
+            0.01667
+        };
+
         let mut should_select = false;
         let mut should_move = false;
 
@@ -171,6 +191,15 @@ pub fn main() {
                 } => show_debug = !show_debug,
 
                 Event::KeyDown {
+                    keycode: Some(Keycode::R),
+                    ..
+                } => {
+                    if show_debug {
+                        dungeon = Dungeon::new((delta_seconds * 1_000_000.0) as u64)
+                    }
+                }
+
+                Event::KeyDown {
                     keycode: Some(keycode), ..
                 } => {
                     let event = match keycode {
@@ -202,23 +231,24 @@ pub fn main() {
                 .next();
         }
 
-        let mut fts = frame_times.iter();
-        let delta_seconds = if let (Some(latest), Some(previous)) = (fts.nth_back(0), fts.nth_back(0)) {
-            let frame_duration: Duration = *latest - *previous;
-            frame_duration.as_secs_f32()
-        } else {
-            0.01667
-        };
-
         dungeon.level().animate(delta_seconds);
         for fighter in dungeon.fighters() {
             fighter.animate(delta_seconds);
         }
 
+        if let Some(new_position) = dungeon.level().room_center_in_pixel_space(dungeon.player().position()) {
+            camera_position = new_position;
+        }
+
         let (width, height) = canvas.output_size().unwrap();
-        let camera_target_x = dungeon.player().x * TILE_STRIDE - width as i32 / 2 + TILE_STRIDE / 2;
-        let camera_target_y = dungeon.player().y * TILE_STRIDE - (height as i32 - 150) / 2;
-        camera.update(delta_seconds, camera_target_x, camera_target_y);
+        let camera_target_x = camera_position.x - width as i32 / 2;
+        let camera_target_y = camera_position.y - (height as i32 - 150) / 2;
+        if dungeon.level_changed() {
+            camera.x = camera_target_x;
+            camera.y = camera_target_y;
+        } else {
+            camera.update(delta_seconds, camera_target_x, camera_target_y);
+        }
 
         canvas.set_draw_color(Color::RGB(0x44, 0x44, 0x44));
         canvas.clear();
@@ -243,7 +273,7 @@ pub fn main() {
 
         if let Some(selected_fighter) = selected_fighter.and_then(|id| dungeon.get_fighter(id)) {
             let background_rect = Rect::new(width as i32 - 310, height as i32 - 20 - 16 * 12 - 150, 300, 150);
-            canvas.set_draw_color(Color::RGBA(0x22, 0x22, 0x22, 0xDD));
+            canvas.set_draw_color(Color::RGBA(0x44, 0x44, 0x44, 0xAA));
             let _ = canvas.fill_rect(background_rect);
 
             let layout = LayoutSettings {
@@ -275,10 +305,11 @@ pub fn main() {
         if show_debug {
             let color = Color::RGB(0xFF, 0xFF, 0x88);
             let title = Text(Font::RegularUi, 28.0, color, String::from("Excavation Site Mercury\n"));
+            let info = Text(Font::RegularUi, 18.0, color, String::from("R to regenerate dungeon\nF5 to quicksave in working directory\nF9 to load quicksave from working directory\n"));
             let fps = frame_times.len();
             let fps = Text(Font::RegularUi, 18.0, color, format!("FPS: {}", fps));
             let layout = LayoutSettings::default();
-            text_painter.draw_text(&mut canvas, &layout, &[title, fps]);
+            text_painter.draw_text(&mut canvas, &layout, &[title, info, fps]);
         }
 
         canvas.present();

@@ -1,6 +1,6 @@
 // TODO: DungeonEvents (and DungeonSaves) should be versioned.
 
-use crate::{enemy_ai, stats, EnemyAi, Fighter, GameLog, Level, Name, Stats, TileGraphic};
+use crate::{EnemyAi, Fighter, FighterSpawn, GameLog, Level};
 use rand_core::SeedableRng;
 use rand_pcg::Pcg32;
 use serde::{Deserialize, Serialize};
@@ -24,6 +24,7 @@ struct DungeonState {
     fighters: Vec<Fighter>,
     ais: Vec<Option<EnemyAi>>,
     round: u64,
+    level_changed: bool,
 }
 
 impl DungeonState {
@@ -38,35 +39,27 @@ impl DungeonState {
             fighters: Vec::new(),
             ais: Vec::new(),
             round: 1,
+            level_changed: true,
         };
+        debug_assert!(!state.level.spawns.is_empty());
 
-        let name = Name::UserInput(String::from("Astronaut"));
-        state.spawn_fighter(name, TileGraphic::Player, stats::PLAYER, None, 4, 4);
-
-        let enemy_list = vec![
-            (Name::Slime, TileGraphic::Slime, stats::SLIME, enemy_ai::SLIME),
-            (Name::Roach, TileGraphic::Roach, stats::ROACH, enemy_ai::ROACH),
-            (Name::Rockman, TileGraphic::Rockman, stats::ROCKMAN, enemy_ai::ROCKMAN),
-            (
-                Name::SentientMetal,
-                TileGraphic::SentientMetal,
-                stats::SENTIENT_METAL,
-                enemy_ai::SENTIENT_METAL,
-            ),
-        ];
-        let mut x = 3;
-        for (name, tile, stats, ai) in enemy_list {
-            state.spawn_fighter(name, tile, stats, Some(ai), x, x + 2);
-            x += 1;
+        for spawn in state.level.spawns.clone() {
+            state.spawn_fighter(spawn);
         }
 
         state
     }
 
-    pub fn spawn_fighter(&mut self, name: Name, tile: TileGraphic, stats: Stats, ai: Option<EnemyAi>, x: i32, y: i32) {
-        self.fighters
-            .push(Fighter::new(self.fighters.len(), name, tile, x, y, stats));
-        self.ais.push(ai);
+    pub fn spawn_fighter(&mut self, spawn: FighterSpawn) {
+        self.fighters.push(Fighter::new(
+            self.fighters.len(),
+            spawn.name,
+            spawn.tile,
+            spawn.x,
+            spawn.y,
+            spawn.stats,
+        ));
+        self.ais.push(spawn.ai);
     }
 
     pub fn move_player(&mut self, dx: i32, dy: i32) {
@@ -109,6 +102,7 @@ impl DungeonState {
             std::mem::swap(&mut self.ais[i], &mut current_ai);
         }
         self.round += 1;
+        self.level_changed = false;
     }
 }
 
@@ -208,5 +202,9 @@ impl Dungeon {
         } else {
             None
         }
+    }
+
+    pub fn level_changed(&self) -> bool {
+        self.state.level_changed
     }
 }

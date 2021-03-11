@@ -41,7 +41,7 @@ pub const ROACH: Stats = Stats {
 pub const ROCKMAN: Stats = Stats {
     max_health: 7,
     health: 7,
-    arm: 12,
+    arm: 10,
     leg: 14,
     finger: 5,
     brain: 9,
@@ -58,7 +58,7 @@ pub const SENTIENT_METAL: Stats = Stats {
     flying: true,
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Stats {
     /// Cap for [Stats::health].
     pub max_health: i32,
