@@ -1,5 +1,6 @@
 use crate::{
-    stats, Camera, GameLog, Level, LocalizableString, Name, Stats, Terrain, TileGraphic, TilePainter, TILE_STRIDE,
+    interface, stats, Camera, GameLog, Level, LocalizableString, Name, Stats, Terrain, TileGraphic, TilePainter,
+    TILE_STRIDE,
 };
 use rand_core::RngCore;
 use rand_pcg::Pcg32;
@@ -290,13 +291,13 @@ impl Fighter {
         canvas.set_blend_mode(BlendMode::Blend);
         for i in 0..self.stats.max_health {
             if i >= self.stats.health {
-                canvas.set_draw_color(Color::RGBA(0xAA, 0xAA, 0xAA, 0xAA));
+                canvas.set_draw_color(interface::HEALTH_EMPTY);
             } else if self.stats.health <= self.stats.max_health / 3 {
-                canvas.set_draw_color(Color::RGB(0xCC, 0x33, 0x22));
+                canvas.set_draw_color(interface::HEALTH_LOW);
             } else if self.stats.health <= self.stats.max_health * 2 / 3 {
-                canvas.set_draw_color(Color::RGB(0xEE, 0xAA, 0x22));
+                canvas.set_draw_color(interface::HEALTH_MEDIUM);
             } else {
-                canvas.set_draw_color(Color::RGB(0x66, 0xCC, 0x33));
+                canvas.set_draw_color(interface::HEALTH_HIGH);
             }
 
             let health_rect_offset =
@@ -309,7 +310,7 @@ impl Fighter {
             );
             let _ = canvas.fill_rect(health_rect);
 
-            canvas.set_draw_color(Color::RGBA(0x33, 0x33, 0x33, 0x44));
+            canvas.set_draw_color(interface::HEALTH_BORDER);
             health_rect.offset(-1, -1);
             health_rect.resize(health_rect.width() + 2, health_rect.height() + 2);
             let _ = canvas.draw_rect(health_rect);

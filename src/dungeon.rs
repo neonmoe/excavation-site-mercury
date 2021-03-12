@@ -13,7 +13,6 @@ pub enum DungeonEvent {
     MoveDown,
     MoveLeft,
     MoveRight,
-    ProcessTurn,
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -112,10 +111,27 @@ impl DungeonState {
     }
 
     pub fn load_level(&mut self) {
+        let player = self.fighters.get(0).map(|f| f.clone());
         self.fighters.clear();
         self.ais.clear();
         self.level_changed = true;
-        for spawn in self.levels[self.current_level].spawns.clone() {
+
+        let mut skip_spawns = 0;
+        if let Some(mut player) = player {
+            let player_spawn = &self.levels[self.current_level].spawns[0];
+            player.x = player_spawn.x;
+            player.y = player_spawn.y;
+            self.fighters.push(player);
+            self.ais.push(None);
+            skip_spawns = 1;
+        }
+
+        for spawn in self.levels[self.current_level]
+            .spawns
+            .clone()
+            .into_iter()
+            .skip(skip_spawns)
+        {
             self.spawn_fighter(spawn);
         }
     }
@@ -188,13 +204,18 @@ impl Dungeon {
             MoveDown => self.state.move_player(0, 1),
             MoveLeft => self.state.move_player(-1, 0),
             MoveRight => self.state.move_player(1, 0),
-            ProcessTurn => self.state.process_turn(),
         }
+        self.state.process_turn()
     }
 
     pub fn can_run_events(&self) -> bool {
         let player = &self.state.fighters[0];
         self.state.levels[self.state.current_level].get_terrain(player.x, player.y) != Terrain::Exit
+            && !self.is_game_over()
+    }
+
+    pub fn is_game_over(&self) -> bool {
+        self.state.fighters[0].stats.health <= 0
     }
 
     pub fn try_load_next_level(&mut self, skip_animation: bool) {

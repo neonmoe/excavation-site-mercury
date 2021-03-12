@@ -62,9 +62,8 @@
 use fontdue::layout::LayoutSettings;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
-use sdl2::mouse::MouseButton;
-use sdl2::pixels::Color;
-use sdl2::rect::{Point, Rect};
+use sdl2::mouse::{Cursor, MouseButton, SystemCursor};
+use sdl2::rect::Rect;
 use std::time::{Duration, Instant};
 
 mod text_painter;
@@ -87,6 +86,8 @@ mod localization;
 pub use localization::{Language, LocalizableString, Name};
 pub mod enemy_ai;
 pub use enemy_ai::EnemyAi;
+pub mod interface;
+pub use interface::UserInterface;
 
 static QUICK_SAVE_FILE: &str = "excavation-site-mercury-quicksave.bin";
 
@@ -118,8 +119,12 @@ pub fn main() {
         .unwrap();
 
     let mut show_debug = false;
-    let mut mouse = Point::new(0, 0);
     let mut selected_fighter = None;
+    let mut ui = UserInterface::new();
+
+    let normal_cursor = Cursor::from_system(SystemCursor::Arrow).unwrap();
+    let hovering_cursor =
+        Cursor::from_system(SystemCursor::Hand).unwrap_or_else(|_| Cursor::from_system(SystemCursor::Arrow).unwrap());
 
     log::info!("Game startup took {:?}.", Instant::now() - initialization_start);
 
@@ -134,8 +139,9 @@ pub fn main() {
             0.01667
         };
 
-        let mut should_select = false;
-        let mut should_move = false;
+        ui.mouse_left_released = false;
+        ui.mouse_right_released = false;
+        ui.hovering = false;
 
         for event in event_pump.poll_iter() {
             match event {
@@ -146,14 +152,26 @@ pub fn main() {
                 } => break 'running,
 
                 Event::MouseButtonDown { mouse_btn, .. } => match mouse_btn {
-                    MouseButton::Left => should_select = true,
-                    MouseButton::Right => should_move = true,
+                    MouseButton::Left => ui.mouse_left_pressed = true,
+                    MouseButton::Right => ui.mouse_right_pressed = true,
+                    _ => {}
+                },
+
+                Event::MouseButtonUp { mouse_btn, .. } => match mouse_btn {
+                    MouseButton::Left => {
+                        ui.mouse_left_pressed = false;
+                        ui.mouse_left_released = true;
+                    }
+                    MouseButton::Right => {
+                        ui.mouse_right_pressed = false;
+                        ui.mouse_right_released = true;
+                    }
                     _ => {}
                 },
 
                 Event::MouseMotion { x, y, .. } => {
-                    mouse.x = x;
-                    mouse.y = y;
+                    ui.mouse_position.x = x;
+                    ui.mouse_position.y = y;
                 }
 
                 Event::KeyDown {
@@ -200,7 +218,7 @@ pub fn main() {
                     ..
                 } => {
                     if show_debug {
-                        dungeon = Dungeon::new((delta_seconds * 1_000_000.0) as u64)
+                        dungeon = Dungeon::new((delta_seconds * 1_000_000_000.0) as u64)
                     }
                 }
 
@@ -217,7 +235,6 @@ pub fn main() {
                     if dungeon.can_run_events() {
                         if let Some(event) = event {
                             dungeon.run_event(event);
-                            dungeon.run_event(DungeonEvent::ProcessTurn);
 
                             let player = dungeon.player();
                             let (x, y) = (player.x, player.y);
@@ -233,15 +250,15 @@ pub fn main() {
 
         dungeon.try_load_next_level(false);
 
-        if should_move {
+        if ui.mouse_right_released {
             log::info!("TODO: Player should pathfind to mouse now");
         }
 
-        if should_select {
+        if ui.mouse_left_released {
             selected_fighter = dungeon
                 .fighters()
                 .iter()
-                .filter(|fighter| fighter.mouse_over(&camera, mouse))
+                .filter(|fighter| fighter.mouse_over(&camera, ui.mouse_position))
                 .map(|fighter| fighter.id)
                 .next();
         }
@@ -265,9 +282,7 @@ pub fn main() {
             camera.update(delta_seconds, camera_target_x, camera_target_y);
         }
 
-        canvas.set_draw_color(Color::RGB(0x44, 0x44, 0x44));
         canvas.clear();
-
         dungeon
             .level()
             .draw(&mut canvas, &mut tile_painter, &camera, false, show_debug, false);
@@ -298,7 +313,7 @@ pub fn main() {
 
         if let Some(selected_fighter) = selected_fighter.and_then(|id| dungeon.get_fighter(id)) {
             let background_rect = Rect::new(width as i32 - 310, height as i32 - 20 - 16 * 12 - 150, 300, 150);
-            canvas.set_draw_color(Color::RGBA(0x44, 0x44, 0x44, 0xAA));
+            canvas.set_draw_color(interface::HUD_BACKGROUND_TRANSPARENT);
             let _ = canvas.fill_rect(background_rect);
 
             let layout = LayoutSettings {
@@ -323,18 +338,87 @@ pub fn main() {
             text_painter.draw_text(&mut canvas, &layout, &fighter_description);
             canvas.set_clip_rect(None);
 
-            canvas.set_draw_color(Color::RGB(0x77, 0x88, 0x88));
+            canvas.set_draw_color(interface::HUD_BORDER);
             let _ = canvas.draw_rect(background_rect);
         }
 
+        if dungeon.is_game_over() {
+            let bg_width = 400;
+            let bg_height = 150;
+            let background_rect = Rect::new(
+                (width as i32 - bg_width as i32) / 2,
+                (height as i32 - bg_height as i32) / 2,
+                bg_width,
+                bg_height,
+            );
+            canvas.set_draw_color(interface::HUD_BACKGROUND_OPAQUE);
+            let _ = canvas.fill_rect(background_rect);
+
+            let layout = LayoutSettings {
+                x: (background_rect.x + 8) as f32,
+                y: (background_rect.y + 8) as f32,
+                max_width: Some((background_rect.width() - 16) as f32),
+                max_height: Some((background_rect.height() - 16) as f32),
+                ..LayoutSettings::default()
+            };
+            let fighter_description = LocalizableString::GameOver {
+                name: dungeon.player().name.clone(),
+            }
+            .localize(Language::English);
+            canvas.set_clip_rect(background_rect);
+            text_painter.draw_text(&mut canvas, &layout, &fighter_description);
+            canvas.set_clip_rect(None);
+
+            canvas.set_draw_color(interface::HUD_BORDER);
+            let _ = canvas.draw_rect(background_rect);
+
+            let restart_button = Rect::new(
+                background_rect.x + 10,
+                background_rect.y + background_rect.height() as i32 - 46,
+                160,
+                36,
+            );
+            if ui.button(
+                &mut canvas,
+                &mut text_painter,
+                LocalizableString::RestartButton,
+                restart_button,
+                true,
+            ) {
+                dungeon = Dungeon::new((delta_seconds * 1_000_000_000.0) as u64)
+            }
+
+            let submit_button = Rect::new(
+                restart_button.x + restart_button.width() as i32 + 10,
+                background_rect.y + background_rect.height() as i32 - 46,
+                160,
+                36,
+            );
+            if ui.button(
+                &mut canvas,
+                &mut text_painter,
+                LocalizableString::SubmitToLeaderboardsButton,
+                submit_button,
+                false,
+            ) {
+                log::error!("Not implemented yet.");
+            }
+        }
+
         if show_debug {
-            let color = Color::RGB(0xFF, 0xFF, 0x88);
+            let color = interface::DEBUG_TEXT;
             let title = Text(Font::RegularUi, 28.0, color, String::from("Excavation Site Mercury\n"));
             let info = Text(Font::RegularUi, 18.0, color, String::from("R to regenerate dungeon\nF5 to quicksave in working directory\nF9 to load quicksave from working directory\n"));
             let fps = frame_times.len();
             let fps = Text(Font::RegularUi, 18.0, color, format!("FPS: {}", fps));
             let layout = LayoutSettings::default();
             text_painter.draw_text(&mut canvas, &layout, &[title, info, fps]);
+        }
+
+        if ui.hovering {
+            hovering_cursor.set();
+        } else {
+            normal_cursor.set();
         }
 
         canvas.present();

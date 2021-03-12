@@ -1,4 +1,4 @@
-use crate::{Font, Language, LocalizableString, Text, TextPainter};
+use crate::{interface, Font, Language, LocalizableString, Text, TextPainter};
 use fontdue::layout::{LayoutSettings, VerticalAlign};
 use sdl2::pixels::Color;
 use sdl2::rect::Rect;
@@ -61,14 +61,14 @@ impl GameLog {
             localized_texts.extend(message.localize(Language::English).into_iter());
         }
 
-        canvas.set_draw_color(Color::RGBA(0x44, 0x44, 0x44, 0xAA));
+        canvas.set_draw_color(interface::HUD_BACKGROUND_TRANSPARENT);
         let _ = canvas.fill_rect(background_rect);
 
         canvas.set_clip_rect(background_rect);
         text_painter.draw_text(canvas, &layout, &localized_texts);
         canvas.set_clip_rect(None);
 
-        canvas.set_draw_color(Color::RGB(0x77, 0x88, 0x88));
+        canvas.set_draw_color(interface::HUD_BORDER);
         let _ = canvas.draw_rect(background_rect);
     }
 }

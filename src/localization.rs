@@ -1,4 +1,4 @@
-use crate::{Font, Text};
+use crate::{interface, Font, Text};
 use sdl2::pixels::Color;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -85,6 +85,13 @@ pub enum LocalizableString {
         finger: i32,
         brain: i32,
     },
+
+    GameOver {
+        name: Name,
+    },
+
+    RestartButton,
+    SubmitToLeaderboardsButton,
 }
 
 impl LocalizableString {
@@ -206,11 +213,11 @@ impl LocalizableString {
                         Font::RegularUi,
                         20.0,
                         if *health <= *max_health / 3 {
-                            Color::RGB(0xEE, 0x55, 0x44)
+                            interface::HEALTH_LOW
                         } else if *health <= *max_health * 2 / 3 {
-                            Color::RGB(0xEE, 0xAA, 0x22)
+                            interface::HEALTH_MEDIUM
                         } else {
-                            Color::RGB(0x66, 0xCC, 0x33)
+                            interface::HEALTH_HIGH
                         },
                         format!("{}", health),
                     ),
@@ -224,6 +231,37 @@ impl LocalizableString {
                             arm, leg, finger, brain
                         ),
                     ),
+                ],
+            },
+
+            LocalizableString::GameOver { name } => match language {
+                Language::Debug => unreachable!(),
+                Language::English => vec![
+                    Text(
+                        Font::RegularUi,
+                        BIGGER_FONT_SIZE,
+                        Color::WHITE,
+                        format!("{} was incapacitated.\n", name.translated_to(language)),
+                    ),
+                    Text(
+                        Font::RegularUi,
+                        NORMAL_FONT_SIZE,
+                        Color::WHITE,
+                        format!("\nDead miners can't carry their treasure back.\nBetter luck next time!\n"),
+                    ),
+                ],
+            },
+
+            LocalizableString::RestartButton => match language {
+                Language::Debug => unreachable!(),
+                Language::English => vec![
+                    Text(Font::RegularUi, NORMAL_FONT_SIZE, Color::WHITE, String::from("Start over"))
+                ],
+            },
+            LocalizableString::SubmitToLeaderboardsButton => match language {
+                Language::Debug => unreachable!(),
+                Language::English => vec![
+                    Text(Font::RegularUi, SMALLER_FONT_SIZE, Color::WHITE, String::from("Submit to the leaderboards"))
                 ],
             },
         }
