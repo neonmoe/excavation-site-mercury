@@ -19,3 +19,4 @@ env_logger = { version = "^0.8", optional = true }
 [profile.release]
 opt-level = 'z'
 lto = true
+codegen-units = 1
