@@ -162,7 +162,7 @@ impl Fighter {
             .filter(|fighter| fighter.x == new_x && fighter.y == new_y && fighter.stats.health > 0)
         {
             hit_something = !hit_fighter.walkable();
-            hit_fighter.take_damage(&self, rng, log, round);
+            hit_fighter.take_damage(&self, level, rng, log, round);
             hit_fighter.previously_hit_from = Some((-dx, -dy));
         }
 
@@ -193,7 +193,7 @@ impl Fighter {
         }
     }
 
-    fn take_damage(&mut self, from: &Fighter, rng: &mut Pcg32, log: &mut GameLog, round: u64) {
+    fn take_damage(&mut self, from: &Fighter, level: &mut Level, rng: &mut Pcg32, log: &mut GameLog, round: u64) {
         let hit_roll = (rng.next_u32() % 6) as i32 + 1;
         let modifier = from.stats.arm - self.stats.leg;
         if hit_roll >= -modifier {
@@ -213,6 +213,9 @@ impl Fighter {
 
             if self.stats.health == 0 {
                 log.combat(round, LocalizableString::SomeoneWasIncapacitated(self.name.clone()));
+                if self.stats.treasure > 0 {
+                    level.put_treasure(self.x, self.y, self.stats.treasure);
+                }
             }
         } else {
             log.combat(

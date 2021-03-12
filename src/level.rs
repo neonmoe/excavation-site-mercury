@@ -74,6 +74,11 @@ impl FighterSpawn {
 }
 
 #[derive(Clone, Copy, PartialEq, Debug)]
+pub struct Treasure {
+    pub amount: i32,
+}
+
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub enum Terrain {
     Empty,
     Floor,
@@ -81,6 +86,7 @@ pub enum Terrain {
     Door,
     DoorOpen,
     Exit,
+    FinalTreasure,
 }
 
 impl Terrain {
@@ -94,7 +100,7 @@ impl Terrain {
 
     pub const fn enemies_avoid(self) -> bool {
         match self {
-            Terrain::Door | Terrain::DoorOpen | Terrain::Empty | Terrain::Exit => true,
+            Terrain::Door | Terrain::DoorOpen | Terrain::Empty | Terrain::Exit | Terrain::FinalTreasure => true,
             _ => false,
         }
     }
@@ -112,6 +118,7 @@ pub struct Level {
     pub line_of_sight_y: i32,
     terrain: [Terrain; LEVEL_WIDTH * LEVEL_HEIGHT],
     rooms: Vec<Rect>,
+    treasure: [Option<Treasure>; LEVEL_WIDTH * LEVEL_HEIGHT],
 
     /// Intended to only be used in the drawing functions, mutated by
     /// `.animate()`. In a RefCell, because this is "stateful" per
@@ -127,9 +134,6 @@ impl PartialEq for Level {
 
 impl Level {
     pub fn new(rng: &mut Pcg32, difficulty: u32) -> Level {
-        let mut terrain = [Terrain::Empty; LEVEL_WIDTH * LEVEL_HEIGHT];
-        let mut rooms = Vec::new();
-
         fn terrain_mut(
             terrain: &mut [Terrain; LEVEL_WIDTH * LEVEL_HEIGHT],
             x: i32,
@@ -253,6 +257,11 @@ impl Level {
             }
         }
 
+        let mut terrain = [Terrain::Empty; LEVEL_WIDTH * LEVEL_HEIGHT];
+        let mut treasure = [None; LEVEL_WIDTH * LEVEL_HEIGHT];
+        let mut rooms = Vec::new();
+
+        // Place starting room
         let start_room_width = 8;
         let start_room_height = 5;
         let start_room_x = (LEVEL_WIDTH as u32 - start_room_width) as i32 / 2;
@@ -261,6 +270,7 @@ impl Level {
         put_room(&mut terrain, start_room).unwrap();
         rooms.push(start_room);
 
+        // Place the rest of the rooms
         let mut iterations = 0;
         while rooms.len() < 8 && iterations < 10_000 {
             iterations += 1;
@@ -304,12 +314,14 @@ impl Level {
             }
         }
 
+        // Place player
         let mut spawns = Vec::new();
         spawns.push(SPAWN_PLAYER.at_position(
             start_room.x + start_room.width() as i32 / 2,
             start_room.y + start_room.height() as i32 / 2,
         ));
 
+        // Place enemies
         for room in rooms.iter().skip(1) {
             let mut occupied_spots = Vec::new();
             let spawned_enemies = room.width() / 3 + rng.next_u32() % (3 + difficulty / 2);
@@ -335,6 +347,17 @@ impl Level {
             }
         }
 
+        // Place treasure
+        for _ in 0..5 + difficulty * 5 + rng.next_u32() % 5 {
+            let room = rooms[rng.next_u32() as usize % rooms.len()];
+            let x = room.x + 1 + (rng.next_u32() % (room.width() - 2)) as i32;
+            let y = room.y + (rng.next_u32() % (room.height() - 1)) as i32;
+            treasure[x as usize + y as usize * LEVEL_WIDTH] = Some(Treasure {
+                amount: (rng.next_u32() % 4) as i32 + 4,
+            });
+        }
+
+        // Place level exit or final treasure (for final level)
         let start_room_center_x = start_room_x + start_room_width as i32 / 2;
         let start_room_center_y = start_room_y + start_room_height as i32 / 2;
         rooms.sort_unstable_by_key(|room| {
@@ -345,7 +368,11 @@ impl Level {
         let furthest_room = rooms.iter().nth_back(0).unwrap();
         let exit_x = furthest_room.x as usize + 1 + (rng.next_u32() % (furthest_room.width() - 2)) as usize;
         let exit_y = furthest_room.y as usize + 1 + (rng.next_u32() % (furthest_room.height() - 3)) as usize;
-        terrain[exit_x + exit_y * LEVEL_WIDTH] = Terrain::Exit;
+        if difficulty < 3 {
+            terrain[exit_x + exit_y * LEVEL_WIDTH] = Terrain::Exit;
+        } else {
+            terrain[exit_x + exit_y * LEVEL_WIDTH] = Terrain::FinalTreasure;
+        }
 
         let line_of_sight_x = spawns[0].x;
         let line_of_sight_y = spawns[0].y;
@@ -353,6 +380,7 @@ impl Level {
         Level {
             terrain,
             rooms,
+            treasure,
             spawns,
             line_of_sight_x,
             line_of_sight_y,
@@ -385,6 +413,37 @@ impl Level {
             Terrain::Empty
         } else {
             self.terrain[x as usize + y as usize * LEVEL_WIDTH]
+        }
+    }
+
+    pub fn get_treasure(&self, x: i32, y: i32) -> Option<Treasure> {
+        if x < 0 || y < 0 || x >= LEVEL_WIDTH as i32 || y >= LEVEL_HEIGHT as i32 {
+            None
+        } else {
+            self.treasure[x as usize + y as usize * LEVEL_WIDTH]
+        }
+    }
+
+    pub fn take_treasure(&mut self, x: i32, y: i32) -> i32 {
+        if x < 0 || y < 0 || x >= LEVEL_WIDTH as i32 || y >= LEVEL_HEIGHT as i32 {
+            0
+        } else {
+            self.treasure[x as usize + y as usize * LEVEL_WIDTH]
+                .take()
+                .map(|treasure| treasure.amount)
+                .unwrap_or(0)
+        }
+    }
+
+    pub fn put_treasure(&mut self, x: i32, y: i32, amount: i32) {
+        if x < 0 || y < 0 || x >= LEVEL_WIDTH as i32 || y >= LEVEL_HEIGHT as i32 {
+            return;
+        }
+        let index = x as usize + y as usize * LEVEL_WIDTH;
+        if let Some(treasure) = &mut self.treasure[index] {
+            treasure.amount += amount;
+        } else {
+            self.treasure[index] = Some(Treasure { amount });
         }
     }
 
@@ -571,6 +630,7 @@ impl Level {
                     ],
                     (Terrain::Floor, _, _, _, _, _) => &[(TileGraphic::Ground, 0, 0, NO_FLAGS)],
                     (Terrain::Exit, _, _, _, _, _) => &[(TileGraphic::LevelExit, 0, 0, NO_FLAGS)],
+                    (Terrain::FinalTreasure, _, _, _, _, _) => &[(TileGraphic::FinalTreasureMinerals, 0, 0, NO_FLAGS)],
 
                     (_, _, _, _, _, _) => &[],
                 };
@@ -652,6 +712,38 @@ impl Level {
         }
     }
 
+    pub fn draw_treasure<RT: RenderTarget>(
+        &self,
+        canvas: &mut Canvas<RT>,
+        tile_painter: &mut TilePainter,
+        camera: &Camera,
+    ) {
+        let offset_x = camera.x / TILE_STRIDE;
+        let offset_y = camera.y / TILE_STRIDE;
+        let (screen_width, screen_height) = canvas.output_size().unwrap();
+        let tiles_x = screen_width as i32 / TILE_STRIDE + 2;
+        let tiles_y = screen_height as i32 / TILE_STRIDE + 2;
+
+        for y in 0..tiles_y {
+            let tile_y = y + offset_y;
+            for x in 0..tiles_x {
+                let tile_x = x + offset_x;
+                if self.get_treasure(tile_x, tile_y).is_some() {
+                    let x = tile_x as i32 * TILE_STRIDE - camera.x;
+                    let y = tile_y as i32 * TILE_STRIDE - camera.y;
+                    tile_painter.draw_tile_shadowed(
+                        canvas,
+                        TileGraphic::MineralsScattered,
+                        x,
+                        y,
+                        tile_x % 2 == 0,
+                        false,
+                    );
+                }
+            }
+        }
+    }
+
     pub fn draw_shadows<RT: RenderTarget>(
         &self,
         canvas: &mut Canvas<RT>,
@@ -669,20 +761,12 @@ impl Level {
             for x in 0..tiles_x {
                 let tile_x = x + offset_x;
 
-                let get_terrain = |x: i32, y: i32| {
-                    if x < 0 || y < 0 || x >= LEVEL_WIDTH as i32 || y >= LEVEL_HEIGHT as i32 {
-                        Terrain::Empty
-                    } else {
-                        self.terrain[x as usize + y as usize * LEVEL_WIDTH]
-                    }
-                };
-
                 let tiles: &[TileGraphic] = match (
-                    get_terrain(tile_x, tile_y),         // tile at cursor
-                    get_terrain(tile_x, tile_y + 1),     // tile below cursor
-                    get_terrain(tile_x, tile_y + 2),     // tile two tiles below cursor
-                    get_terrain(tile_x - 1, tile_y),     // tile left of cursor
-                    get_terrain(tile_x - 1, tile_y + 1), // tile below and left of cursor
+                    self.get_terrain(tile_x, tile_y),         // tile at cursor
+                    self.get_terrain(tile_x, tile_y + 1),     // tile below cursor
+                    self.get_terrain(tile_x, tile_y + 2),     // tile two tiles below cursor
+                    self.get_terrain(tile_x - 1, tile_y),     // tile left of cursor
+                    self.get_terrain(tile_x - 1, tile_y + 1), // tile below and left of cursor
                 ) {
                     (Terrain::Floor, _, Terrain::Wall, Terrain::Wall, _) => &[TileGraphic::ShadowBottomLeft],
                     (Terrain::Floor, _, Terrain::Wall, _, _) => &[TileGraphic::ShadowBottom],

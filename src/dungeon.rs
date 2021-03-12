@@ -79,6 +79,7 @@ impl DungeonState {
             &mut self.log,
             self.round,
         );
+        player.stats.treasure += self.levels[self.current_level].take_treasure(player.x, player.y);
         std::mem::swap(&mut self.fighters[0], &mut player);
     }
 

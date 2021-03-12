@@ -35,6 +35,9 @@ pub enum TileGraphic {
     SentientMetal,
     DeadSentientMetal,
     LevelExit,
+    MineralCounter,
+    MineralsScattered,
+    FinalTreasureMinerals,
 }
 
 impl TileGraphic {

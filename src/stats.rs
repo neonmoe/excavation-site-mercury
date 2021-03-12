@@ -6,6 +6,7 @@ pub const DUMMY: Stats = Stats {
     finger: 1,
     brain: 1,
     flying: false,
+    treasure: 0,
 };
 
 pub const PLAYER: Stats = Stats {
@@ -16,6 +17,7 @@ pub const PLAYER: Stats = Stats {
     finger: 10,
     brain: 10,
     flying: false,
+    treasure: 0,
 };
 
 pub const SLIME: Stats = Stats {
@@ -26,6 +28,7 @@ pub const SLIME: Stats = Stats {
     finger: 1,
     brain: 1,
     flying: false,
+    treasure: 0,
 };
 
 pub const ROACH: Stats = Stats {
@@ -36,6 +39,7 @@ pub const ROACH: Stats = Stats {
     finger: 8,
     brain: 4,
     flying: false,
+    treasure: 0,
 };
 
 pub const ROCKMAN: Stats = Stats {
@@ -46,6 +50,7 @@ pub const ROCKMAN: Stats = Stats {
     finger: 5,
     brain: 9,
     flying: false,
+    treasure: 0,
 };
 
 pub const SENTIENT_METAL: Stats = Stats {
@@ -56,6 +61,7 @@ pub const SENTIENT_METAL: Stats = Stats {
     finger: 1,
     brain: 12,
     flying: true,
+    treasure: 6,
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -78,4 +84,6 @@ pub struct Stats {
     /// True for creatures floating in air, and those who have
     /// acquired a flying apparatus.
     pub flying: bool,
+    /// The amount of treasure this fighter drops when dead.
+    pub treasure: i32,
 }

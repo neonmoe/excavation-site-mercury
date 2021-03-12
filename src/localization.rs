@@ -247,7 +247,7 @@ impl LocalizableString {
                         Font::RegularUi,
                         NORMAL_FONT_SIZE,
                         Color::WHITE,
-                        format!("\nDead miners can't carry their treasure back.\nBetter luck next time!\n"),
+                        format!("\nBetter luck next time!\n"),
                     ),
                 ],
             },

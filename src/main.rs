@@ -263,15 +263,16 @@ pub fn main() {
                 .next();
         }
 
+        // Animate
         dungeon.level().animate(delta_seconds);
         for fighter in dungeon.fighters() {
             fighter.animate(delta_seconds, dungeon.level());
         }
 
+        // Update camera
         if let Some(new_position) = dungeon.level().room_center_in_pixel_space(dungeon.player().position()) {
             camera_position = new_position;
         }
-
         let (width, height) = canvas.output_size().unwrap();
         let camera_target_x = camera_position.x - width as i32 / 2;
         let camera_target_y = camera_position.y - (height as i32 - 150) / 2;
@@ -282,10 +283,14 @@ pub fn main() {
             camera.update(delta_seconds, camera_target_x, camera_target_y);
         }
 
+        // Start rendering
         canvas.clear();
+
+        // Draw the world
         dungeon
             .level()
             .draw(&mut canvas, &mut tile_painter, &camera, false, show_debug, false);
+        dungeon.level().draw_treasure(&mut canvas, &mut tile_painter, &camera);
         for fighter in dungeon.fighters() {
             let selected = Some(fighter.id) == selected_fighter;
             fighter.draw(&mut canvas, &mut tile_painter, &camera, true, show_debug, selected);
@@ -309,8 +314,46 @@ pub fn main() {
             !dungeon.is_first_level(),
         );
 
+        // Draw the treasure counter
+        {
+            let mineral_counter_bg = Rect::new(10, 10, 140, 46);
+            canvas.set_draw_color(interface::HUD_BACKGROUND_TRANSPARENT);
+            let _ = canvas.fill_rect(mineral_counter_bg);
+            canvas.set_draw_color(interface::HUD_BORDER);
+            let _ = canvas.draw_rect(mineral_counter_bg);
+            tile_painter.draw_tile(
+                &mut canvas,
+                TileGraphic::MineralCounter,
+                mineral_counter_bg.x - 12,
+                mineral_counter_bg.y - 6,
+                false,
+                false,
+            );
+
+            use fontdue::layout::HorizontalAlign;
+            use sdl2::pixels::Color;
+            let layout = LayoutSettings {
+                x: (mineral_counter_bg.x + 8) as f32,
+                y: (mineral_counter_bg.y + 8) as f32,
+                max_width: Some((mineral_counter_bg.width() - 16) as f32),
+                horizontal_align: HorizontalAlign::Right,
+                ..LayoutSettings::default()
+            };
+            let text = &[Text(
+                Font::RegularUi,
+                26.0,
+                Color::WHITE,
+                format!("{}", dungeon.player().stats.treasure),
+            )];
+            canvas.set_clip_rect(mineral_counter_bg);
+            text_painter.draw_text(&mut canvas, &layout, text);
+            canvas.set_clip_rect(None);
+        }
+
+        // Draw the combat log
         dungeon.log().draw_messages(&mut canvas, &mut text_painter);
 
+        // Draw the fighter selection HUD
         if let Some(selected_fighter) = selected_fighter.and_then(|id| dungeon.get_fighter(id)) {
             let background_rect = Rect::new(width as i32 - 310, height as i32 - 20 - 16 * 12 - 150, 300, 150);
             canvas.set_draw_color(interface::HUD_BACKGROUND_TRANSPARENT);
@@ -342,6 +385,7 @@ pub fn main() {
             let _ = canvas.draw_rect(background_rect);
         }
 
+        // Draw the game over screen (if needed)
         if dungeon.is_game_over() {
             let bg_width = 400;
             let bg_height = 150;
@@ -405,6 +449,7 @@ pub fn main() {
             }
         }
 
+        // Draw debug information (if enabled)
         if show_debug {
             let color = interface::DEBUG_TEXT;
             let title = Text(Font::RegularUi, 28.0, color, String::from("Excavation Site Mercury\n"));
@@ -415,12 +460,14 @@ pub fn main() {
             text_painter.draw_text(&mut canvas, &layout, &[title, info, fps]);
         }
 
+        // Update cursor
         if ui.hovering {
             hovering_cursor.set();
         } else {
             normal_cursor.set();
         }
 
+        // Whew, done with this frame.
         canvas.present();
 
         let now = Instant::now();
