@@ -89,6 +89,7 @@ pub enum LocalizableString {
     GameOver {
         name: Name,
     },
+    Victory,
 
     RestartButton,
     SubmitToLeaderboardsButton,
@@ -248,6 +249,22 @@ impl LocalizableString {
                         NORMAL_FONT_SIZE,
                         Color::WHITE,
                         format!("\nBetter luck next time!\n"),
+                    ),
+                ],
+            },
+
+            LocalizableString::Victory => match language {
+                Language::Debug => unreachable!(),
+                Language::English => vec![
+                    Text(
+                        Font::RegularUi, BIGGER_FONT_SIZE, Color::WHITE, String::from("Treasure found!\n"),
+                    ),
+                    Text(
+                        Font::RegularUi,
+                        NORMAL_FONT_SIZE,
+                        Color::WHITE,
+                        format!("\nYou have delved a deep as it gets, congratulations!\n\
+                                 Finish the run by selecting either button below.\n"),
                     ),
                 ],
             },

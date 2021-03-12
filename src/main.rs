@@ -28,9 +28,10 @@
 //!   - ~~Design: abstract map struct for arranging rooms, for minimap rendering~~
 //! - ~~Level progression (level exits and difficulty curve)~~
 //! - ~~Line of sight~~
-//! - Player death handling, game over UI
+//! - ~~Player death handling, game over UI~~
+//! - ~~Treasure UI and treasure tiles~~
+//! - ~~Final treasure for the end of the 4th level, and run finish UI~~
 //! - Stat increases at the start of each level
-//! - Treasure UI and treasure tiles
 //! - Locked rooms with treasure, openable with the Finger stat
 //! - Hazard rooms to get treasure
 //!   - Design: hazard + challenged stat combinations (Brain is still useless)
@@ -38,7 +39,6 @@
 //!   - Required to implement sentient metal's ranged attack
 //! - Sentient Metal AI
 //! - Different types of wall and floor for 3rd and 4th levels
-//! - Final treasure for the end of the 4th level, and run finish UI
 //!
 //! And here's some "polish" features I'll add if I have the time:
 //!
@@ -388,7 +388,7 @@ pub fn main() {
         // Draw the game over screen (if needed)
         if dungeon.is_game_over() {
             let bg_width = 400;
-            let bg_height = 150;
+            let bg_height = 140;
             let background_rect = Rect::new(
                 (width as i32 - bg_width as i32) / 2,
                 (height as i32 - bg_height as i32) / 2,
@@ -405,12 +405,70 @@ pub fn main() {
                 max_height: Some((background_rect.height() - 16) as f32),
                 ..LayoutSettings::default()
             };
-            let fighter_description = LocalizableString::GameOver {
+            let game_over_string = LocalizableString::GameOver {
                 name: dungeon.player().name.clone(),
-            }
-            .localize(Language::English);
+            };
             canvas.set_clip_rect(background_rect);
-            text_painter.draw_text(&mut canvas, &layout, &fighter_description);
+            text_painter.draw_text(&mut canvas, &layout, &game_over_string.localize(Language::English));
+            canvas.set_clip_rect(None);
+
+            canvas.set_draw_color(interface::HUD_BORDER);
+            let _ = canvas.draw_rect(background_rect);
+
+            let restart_button = Rect::new(
+                background_rect.x + 10,
+                background_rect.y + background_rect.height() as i32 - 46,
+                160,
+                36,
+            );
+            if ui.button(
+                &mut canvas,
+                &mut text_painter,
+                LocalizableString::RestartButton,
+                restart_button,
+                true,
+            ) {
+                dungeon = Dungeon::new((delta_seconds * 1_000_000_000.0) as u64)
+            }
+
+            let submit_button = Rect::new(
+                restart_button.x + restart_button.width() as i32 + 10,
+                background_rect.y + background_rect.height() as i32 - 46,
+                160,
+                36,
+            );
+            if ui.button(
+                &mut canvas,
+                &mut text_painter,
+                LocalizableString::SubmitToLeaderboardsButton,
+                submit_button,
+                false,
+            ) {
+                log::error!("Not implemented yet.");
+            }
+        }
+
+        // Draw the victory screen (if the final treasure has been found)
+        if dungeon.final_treasure_found() && !dungeon.is_game_over() {
+            let bg_width = 450;
+            let bg_height = 160;
+            let background_rect = Rect::new((width - 10 - bg_width) as i32, 10, bg_width, bg_height);
+            canvas.set_draw_color(interface::HUD_BACKGROUND_TRANSPARENT);
+            let _ = canvas.fill_rect(background_rect);
+
+            let layout = LayoutSettings {
+                x: (background_rect.x + 8) as f32,
+                y: (background_rect.y + 8) as f32,
+                max_width: Some((background_rect.width() - 16) as f32),
+                max_height: Some((background_rect.height() - 16) as f32),
+                ..LayoutSettings::default()
+            };
+            canvas.set_clip_rect(background_rect);
+            text_painter.draw_text(
+                &mut canvas,
+                &layout,
+                &LocalizableString::Victory.localize(Language::English),
+            );
             canvas.set_clip_rect(None);
 
             canvas.set_draw_color(interface::HUD_BORDER);

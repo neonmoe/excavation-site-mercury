@@ -116,6 +116,7 @@ pub struct Level {
     pub spawns: Vec<FighterSpawn>,
     pub line_of_sight_x: i32,
     pub line_of_sight_y: i32,
+    pub final_treasure_found: bool,
     terrain: [Terrain; LEVEL_WIDTH * LEVEL_HEIGHT],
     rooms: Vec<Rect>,
     treasure: [Option<Treasure>; LEVEL_WIDTH * LEVEL_HEIGHT],
@@ -352,9 +353,12 @@ impl Level {
             let room = rooms[rng.next_u32() as usize % rooms.len()];
             let x = room.x + 1 + (rng.next_u32() % (room.width() - 2)) as i32;
             let y = room.y + (rng.next_u32() % (room.height() - 1)) as i32;
-            treasure[x as usize + y as usize * LEVEL_WIDTH] = Some(Treasure {
-                amount: (rng.next_u32() % 4) as i32 + 4,
-            });
+            let index = x as usize + y as usize * LEVEL_WIDTH;
+            if terrain[index] == Terrain::Floor {
+                treasure[index] = Some(Treasure {
+                    amount: (rng.next_u32() % 4) as i32 + 4,
+                });
+            }
         }
 
         // Place level exit or final treasure (for final level)
@@ -378,12 +382,13 @@ impl Level {
         let line_of_sight_y = spawns[0].y;
 
         Level {
-            terrain,
-            rooms,
-            treasure,
             spawns,
             line_of_sight_x,
             line_of_sight_y,
+            final_treasure_found: false,
+            terrain,
+            rooms,
+            treasure,
             animation_state: RefCell::new(LevelAnimation::default()),
         }
     }
@@ -427,6 +432,10 @@ impl Level {
     pub fn take_treasure(&mut self, x: i32, y: i32) -> i32 {
         if x < 0 || y < 0 || x >= LEVEL_WIDTH as i32 || y >= LEVEL_HEIGHT as i32 {
             0
+        } else if self.terrain[x as usize + y as usize * LEVEL_WIDTH] == Terrain::FinalTreasure {
+            self.terrain[x as usize + y as usize * LEVEL_WIDTH] = Terrain::Floor;
+            self.final_treasure_found = true;
+            100
         } else {
             self.treasure[x as usize + y as usize * LEVEL_WIDTH]
                 .take()

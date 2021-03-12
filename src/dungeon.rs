@@ -219,6 +219,10 @@ impl Dungeon {
         self.state.fighters[0].stats.health <= 0
     }
 
+    pub fn final_treasure_found(&self) -> bool {
+        self.level().final_treasure_found
+    }
+
     pub fn try_load_next_level(&mut self, skip_animation: bool) {
         let player = &self.state.fighters[0];
         let on_exit = self.state.levels[self.state.current_level].get_terrain(player.x, player.y) == Terrain::Exit;
