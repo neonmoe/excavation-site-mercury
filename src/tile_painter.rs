@@ -74,7 +74,7 @@ pub struct TilePainter<'r> {
 
 impl TilePainter<'_> {
     pub fn new<'r, T>(texture_creator: &'r TextureCreator<T>) -> Result<TilePainter<'r>, ImageLoadingError> {
-        let bytes: &[u8] = include_bytes!("graphics/tileset.png");
+        let bytes: &[u8] = include_bytes!("graphics/tileset-quantized.png");
         let decoder = png::Decoder::new(bytes);
         let (info, mut reader) = decoder.read_info()?;
         let mut buf = vec![0; info.buffer_size()];

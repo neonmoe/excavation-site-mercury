@@ -260,6 +260,10 @@ impl Dungeon {
         }
     }
 
+    pub fn level_nth(&self) -> usize {
+        self.state.current_level
+    }
+
     pub fn level(&self) -> &Level {
         &self.state.levels[self.state.current_level]
     }

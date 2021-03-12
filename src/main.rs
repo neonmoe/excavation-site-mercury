@@ -508,7 +508,7 @@ pub fn main() {
             ui.text_box(
                 &mut canvas,
                 &mut text_painter,
-                &LocalizableString::LevelUpMessage(2),
+                &LocalizableString::LevelUpMessage(dungeon.level_nth().max(1) as u32 - 1),
                 background_rect,
                 true,
             );
