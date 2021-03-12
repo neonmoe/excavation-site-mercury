@@ -64,7 +64,6 @@ pub enum LocalizableString {
         attacker_arm: i32,
         defender_leg: i32,
     },
-
     AttackMissed {
         attacker: Name,
         defender: Name,
@@ -72,8 +71,18 @@ pub enum LocalizableString {
         attacker_arm: i32,
         defender_leg: i32,
     },
-
     SomeoneWasIncapacitated(Name),
+
+    DoorUnlocked {
+        roll_threshold: i32,
+        roll: i32,
+        finger: i32,
+    },
+    DoorUnlockingFailed {
+        roll_threshold: i32,
+        roll: i32,
+        finger: i32,
+    },
 
     FighterDescription {
         id: usize,
@@ -107,6 +116,7 @@ impl LocalizableString {
         const NORMAL_FONT_SIZE: f32 = 16.0;
         const SMALLER_FONT_SIZE: f32 = 14.0;
         const BIGGER_FONT_SIZE: f32 = 18.0;
+        const COMMENT_COLOR: Color = Color::RGB(0x99, 0x99, 0x99);
         match self {
             LocalizableString::SomeoneAttackedSomeone {
                 attacker,
@@ -119,9 +129,7 @@ impl LocalizableString {
                 Language::Debug => unreachable!(),
                 Language::English => vec![
                     Text(
-                        Font::RegularUi,
-                        NORMAL_FONT_SIZE,
-                        Color::WHITE,
+                        Font::RegularUi, NORMAL_FONT_SIZE, Color::WHITE,
                         format!(
                             "{att} hit {def} for {dmg} damage!\n",
                             att = attacker.translated_to(language),
@@ -130,9 +138,7 @@ impl LocalizableString {
                         ),
                     ),
                     Text(
-                        Font::RegularUi,
-                        SMALLER_FONT_SIZE,
-                        Color::RGB(0x99, 0x99, 0x99),
+                        Font::RegularUi, SMALLER_FONT_SIZE, COMMENT_COLOR,
                         format!(
                             "Rolled {roll} + Arm {arm} - Leg {leg} = {diff}, leading to {bonus} bonus damage.\n",
                             roll = roll,
@@ -155,9 +161,7 @@ impl LocalizableString {
                 Language::Debug => unreachable!(),
                 Language::English => vec![
                     Text(
-                        Font::RegularUi,
-                        NORMAL_FONT_SIZE,
-                        Color::RGB(0xEE, 0xEE, 0xEE),
+                        Font::RegularUi, NORMAL_FONT_SIZE, Color::RGB(0xEE, 0xEE, 0xEE),
                         format!(
                             "{att} struck {def}, but missed.\n",
                             att = attacker.translated_to(language),
@@ -165,9 +169,7 @@ impl LocalizableString {
                         ),
                     ),
                     Text(
-                        Font::RegularUi,
-                        SMALLER_FONT_SIZE,
-                        Color::RGB(0x99, 0x99, 0x99),
+                        Font::RegularUi, SMALLER_FONT_SIZE, COMMENT_COLOR,
                         format!(
                             "Rolled {roll}, hitting would require {modf}, because Leg {leg} surpasses Arm {arm} by {modf}.\n",
                             roll = roll,
@@ -182,11 +184,56 @@ impl LocalizableString {
             LocalizableString::SomeoneWasIncapacitated(name) => match language {
                 Language::Debug => unreachable!(),
                 Language::English => vec![Text(
-                    Font::RegularUi,
-                    NORMAL_FONT_SIZE,
-                    Color::WHITE,
+                    Font::RegularUi, NORMAL_FONT_SIZE, Color::WHITE,
                     format!("{} is incapacitated.\n", name.translated_to(language)),
                 )],
+            },
+
+            LocalizableString::DoorUnlocked {
+                roll_threshold,
+                roll,
+                finger,
+            } => match language {
+                Language::Debug => unreachable!(),
+                Language::English => vec![
+                    Text(
+                        Font::RegularUi, NORMAL_FONT_SIZE, Color::WHITE,
+                        format!("Door unlocked with a roll of {}.\n", roll),
+                    ),
+                    Text(
+                        Font::RegularUi, SMALLER_FONT_SIZE, COMMENT_COLOR,
+                        format!(
+                            "The threshold for unlocking was {}, from Lock {} - Finger {}.\n",
+                            roll_threshold - finger,
+                            roll_threshold,
+                            finger,
+                        ),
+                    ),
+                ],
+            },
+
+            LocalizableString::DoorUnlockingFailed {
+                roll_threshold,
+                roll,
+                finger,
+            } => match language {
+                Language::Debug => unreachable!(),
+                Language::English => vec![
+                    Text(
+                        Font::RegularUi, NORMAL_FONT_SIZE, Color::WHITE,
+                        format!("Failed to open door with a roll of {}.\n", roll),
+                    ),
+                    Text(
+                        Font::RegularUi, NORMAL_FONT_SIZE, COMMENT_COLOR,
+                        format!(
+                            "Unlocking{} would require a roll of {} (Lock {} - Finger {}).\n",
+                            if roll_threshold - finger > 6 { " is impossible with current Finger, as it" } else { "" },
+                            roll_threshold - finger,
+                            roll_threshold,
+                            finger,
+                        ),
+                    ),
+                ],
             },
 
             LocalizableString::FighterDescription {
@@ -242,15 +289,11 @@ impl LocalizableString {
                 Language::Debug => unreachable!(),
                 Language::English => vec![
                     Text(
-                        Font::RegularUi,
-                        BIGGER_FONT_SIZE,
-                        Color::WHITE,
+                        Font::RegularUi, BIGGER_FONT_SIZE, Color::WHITE,
                         format!("{} was incapacitated.\n", name.translated_to(language)),
                     ),
                     Text(
-                        Font::RegularUi,
-                        NORMAL_FONT_SIZE,
-                        Color::WHITE,
+                        Font::RegularUi, NORMAL_FONT_SIZE, Color::WHITE,
                         format!("\nBetter luck next time!\n"),
                     ),
                 ],
@@ -263,9 +306,7 @@ impl LocalizableString {
                         Font::RegularUi, BIGGER_FONT_SIZE, Color::WHITE, String::from("Treasure found!\n"),
                     ),
                     Text(
-                        Font::RegularUi,
-                        NORMAL_FONT_SIZE,
-                        Color::WHITE,
+                        Font::RegularUi, NORMAL_FONT_SIZE, Color::WHITE,
                         format!("\nYou have delved a deep as it gets, congratulations!\n\
                                  Finish the run by selecting either button below.\n"),
                     ),
@@ -311,28 +352,29 @@ impl LocalizableString {
                              String::from("Arm\n")),
                         Text(Font::RegularUi, SMALLER_FONT_SIZE, Color::WHITE,
                              String::from("\nReflects your ability to smash heads in. \
-                                           Each +1 is equivalent to rolling 1 better."))
+                                           Each +1 is equivalent to rolling 1 better.\n"))
                     ],
                     StatIncrease::Leg => vec![
                         Text(Font::RegularUi, NORMAL_FONT_SIZE, Color::WHITE,
                              String::from("Leg\n")),
                         Text(Font::RegularUi, SMALLER_FONT_SIZE, Color::WHITE,
                              String::from("\nMakes you harder to hit. Each +1 is equivalent \
-                                           to enemies rolling 1 worse."))
+                                           to enemies rolling 1 worse.\n"))
                     ],
                     StatIncrease::Finger => vec![
                         Text(Font::RegularUi, NORMAL_FONT_SIZE, Color::WHITE,
                              String::from("Finger\n")),
                         Text(Font::RegularUi, SMALLER_FONT_SIZE, Color::WHITE,
-                             String::from("\nAllows you to pick locks, to loot leftover \
-                                           treasure from previous, security conscious miners."))
+                             String::from("\nAllows you to open locked doors. \
+                                           Each +1 is equivalent to rolling 1 better when \
+                                           opening locked doors.\n"))
                     ],
                     StatIncrease::Brain => vec![
                         Text(Font::RegularUi, NORMAL_FONT_SIZE, Color::WHITE,
                              String::from("Brain\n")),
                         Text(Font::RegularUi, SMALLER_FONT_SIZE, Color::WHITE,
                              String::from("\nMakes you smart. For all those logic puzzles \
-                                           the ancients left for you to solve."))
+                                           the ancients left for you to solve.\n"))
                     ],
                 }
             },

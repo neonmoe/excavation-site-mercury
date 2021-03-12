@@ -84,6 +84,7 @@ pub enum Terrain {
     Floor,
     Wall,
     Door,
+    LockedDoor { roll_threshold: i32 },
     DoorOpen,
     Exit,
     FinalTreasure,
@@ -92,15 +93,19 @@ pub enum Terrain {
 impl Terrain {
     pub const fn unwalkable(self) -> bool {
         match self {
-            Terrain::Wall => true,
-            Terrain::Door => true,
+            Terrain::Wall | Terrain::Door | Terrain::LockedDoor { .. } => true,
             _ => false,
         }
     }
 
     pub const fn enemies_avoid(self) -> bool {
         match self {
-            Terrain::Door | Terrain::DoorOpen | Terrain::Empty | Terrain::Exit | Terrain::FinalTreasure => true,
+            Terrain::Door
+            | Terrain::LockedDoor { .. }
+            | Terrain::DoorOpen
+            | Terrain::Empty
+            | Terrain::Exit
+            | Terrain::FinalTreasure => true,
             _ => false,
         }
     }
@@ -210,23 +215,30 @@ impl Level {
             rooms: &[Rect],
             room: Rect,
             dry_run: bool,
+            door_terrain: Terrain,
+            max_doors: Option<u32>,
         ) -> Result<(), ()> {
+            let mut placed_doors = 0;
             for neighbor in rooms {
-                let shared_top = neighbor.top().max(room.top()) + 1;
-                let shared_bottom = neighbor.bottom().min(room.bottom()) - 2;
-                if shared_top < shared_bottom {
-                    let y = (rng.next_u32() % (shared_bottom - shared_top) as u32) as i32 + shared_top;
-                    if neighbor.right() == room.left() - 1 {
-                        if dry_run {
-                            return Ok(());
-                        } else {
-                            terrain[neighbor.right() as usize + y as usize * LEVEL_WIDTH] = Terrain::Door;
-                        }
-                    } else if neighbor.left() - 1 == room.right() {
-                        if dry_run {
-                            return Ok(());
-                        } else {
-                            terrain[room.right() as usize + y as usize * LEVEL_WIDTH] = Terrain::Door;
+                if door_terrain == Terrain::Door {
+                    let shared_top = neighbor.top().max(room.top()) + 1;
+                    let shared_bottom = neighbor.bottom().min(room.bottom()) - 2;
+                    if shared_top < shared_bottom {
+                        let y = (rng.next_u32() % (shared_bottom - shared_top) as u32) as i32 + shared_top;
+                        if neighbor.right() == room.left() - 1 {
+                            if dry_run {
+                                return Ok(());
+                            } else {
+                                terrain[neighbor.right() as usize + y as usize * LEVEL_WIDTH] = door_terrain;
+                                placed_doors += 1;
+                            }
+                        } else if neighbor.left() - 1 == room.right() {
+                            if dry_run {
+                                return Ok(());
+                            } else {
+                                terrain[room.right() as usize + y as usize * LEVEL_WIDTH] = door_terrain;
+                                placed_doors += 1;
+                            }
                         }
                     }
                 }
@@ -239,14 +251,22 @@ impl Level {
                         if dry_run {
                             return Ok(());
                         } else {
-                            terrain[x as usize + neighbor.bottom() as usize * LEVEL_WIDTH] = Terrain::Door;
+                            terrain[x as usize + neighbor.bottom() as usize * LEVEL_WIDTH] = door_terrain;
+                            placed_doors += 1;
                         }
                     } else if neighbor.top() - 1 == room.bottom() {
                         if dry_run {
                             return Ok(());
                         } else {
-                            terrain[x as usize + room.bottom() as usize * LEVEL_WIDTH] = Terrain::Door;
+                            terrain[x as usize + room.bottom() as usize * LEVEL_WIDTH] = door_terrain;
+                            placed_doors += 1;
                         }
+                    }
+                }
+
+                if let Some(max_doors) = max_doors {
+                    if placed_doors >= max_doors {
+                        break;
                     }
                 }
             }
@@ -258,24 +278,13 @@ impl Level {
             }
         }
 
-        let mut terrain = [Terrain::Empty; LEVEL_WIDTH * LEVEL_HEIGHT];
-        let mut treasure = [None; LEVEL_WIDTH * LEVEL_HEIGHT];
-        let mut rooms = Vec::new();
-
-        // Place starting room
-        let start_room_width = 8;
-        let start_room_height = 5;
-        let start_room_x = (LEVEL_WIDTH as u32 - start_room_width) as i32 / 2;
-        let start_room_y = (LEVEL_HEIGHT as u32 - start_room_height) as i32 / 2;
-        let start_room = Rect::new(start_room_x, start_room_y, start_room_width, start_room_height);
-        put_room(&mut terrain, start_room).unwrap();
-        rooms.push(start_room);
-
-        // Place the rest of the rooms
-        let mut iterations = 0;
-        while rooms.len() < 8 && iterations < 10_000 {
-            iterations += 1;
-
+        fn try_put_room(
+            rng: &mut Pcg32,
+            terrain: &mut [Terrain; LEVEL_WIDTH * LEVEL_HEIGHT],
+            rooms: &[Rect],
+            door_terrain: Terrain,
+            max_doors: Option<u32>,
+        ) -> Result<Rect, ()> {
             let originating_room = rooms[rng.next_u32() as usize % rooms.len()];
             let new_room_width = 4 + (rng.next_u32() % 5);
             let new_room_height = 4 + (rng.next_u32() % 2);
@@ -308,9 +317,34 @@ impl Level {
             };
 
             let new_room = Rect::new(new_room_x, new_room_y, new_room_width, new_room_height);
-            let door_spots_available = add_doors(rng, &mut terrain, &rooms, new_room, true).is_ok();
-            if door_spots_available && put_room(&mut terrain, new_room).is_ok() {
-                let _ = add_doors(rng, &mut terrain, &rooms, new_room, false);
+            let door_spots_available = add_doors(rng, terrain, &rooms, new_room, true, door_terrain, max_doors).is_ok();
+            if door_spots_available && put_room(terrain, new_room).is_ok() {
+                let _ = add_doors(rng, terrain, rooms, new_room, false, door_terrain, max_doors);
+                Ok(new_room)
+            } else {
+                Err(())
+            }
+        }
+
+        let mut terrain = [Terrain::Empty; LEVEL_WIDTH * LEVEL_HEIGHT];
+        let mut treasure = [None; LEVEL_WIDTH * LEVEL_HEIGHT];
+        let mut rooms = Vec::new();
+
+        // Place starting room
+        let start_room_width = 8;
+        let start_room_height = 5;
+        let start_room_x = (LEVEL_WIDTH as u32 - start_room_width) as i32 / 2;
+        let start_room_y = (LEVEL_HEIGHT as u32 - start_room_height) as i32 / 2;
+        let start_room = Rect::new(start_room_x, start_room_y, start_room_width, start_room_height);
+        put_room(&mut terrain, start_room).unwrap();
+        rooms.push(start_room);
+
+        // Place normal rooms
+        let mut iterations = 0;
+        let room_count = 8 + difficulty as usize * 3;
+        while rooms.len() < room_count && iterations < 10_000 {
+            iterations += 1;
+            if let Ok(new_room) = try_put_room(rng, &mut terrain, &rooms, Terrain::Door, None) {
                 rooms.push(new_room);
             }
         }
@@ -324,6 +358,11 @@ impl Level {
 
         // Place enemies
         for room in rooms.iter().skip(1) {
+            if rng.next_u32() % 3 == 0 {
+                // Leave some rooms non-hostile
+                continue;
+            }
+
             let mut occupied_spots = Vec::new();
             let spawned_enemies = room.width() / 3 + rng.next_u32() % (3 + difficulty / 2);
             'spawn_loop: for _ in 0..spawned_enemies {
@@ -356,7 +395,7 @@ impl Level {
             let index = x as usize + y as usize * LEVEL_WIDTH;
             if terrain[index] == Terrain::Floor {
                 treasure[index] = Some(Treasure {
-                    amount: (rng.next_u32() % 4) as i32 + 4,
+                    amount: 4 + (rng.next_u32() % 4) as i32,
                 });
             }
         }
@@ -377,6 +416,32 @@ impl Level {
         } else {
             terrain[exit_x + exit_y * LEVEL_WIDTH] = Terrain::FinalTreasure;
         }
+
+        // Place treasure rooms now that there's a way to finish
+        let mut treasure_rooms = Vec::new();
+        let mut iterations = 0;
+        while treasure_rooms.len() < (difficulty as usize + 1) * 2 && iterations < 1_000 {
+            iterations += 1;
+            let roll_threshold = 14 + (rng.next_u32() % (4 + difficulty * 5 / 3)) as i32;
+            if let Ok(treasure_room) = try_put_room(
+                rng,
+                &mut terrain,
+                &rooms,
+                Terrain::LockedDoor { roll_threshold },
+                Some(1),
+            ) {
+                for y in treasure_room.y..treasure_room.y + treasure_room.height() as i32 - 1 {
+                    for x in treasure_room.x..treasure_room.x + treasure_room.width() as i32 {
+                        let amount = (rng.next_u32() % 5) as i32;
+                        if amount > 0 {
+                            treasure[x as usize + y as usize * LEVEL_WIDTH] = Some(Treasure { amount });
+                        }
+                    }
+                }
+                treasure_rooms.push(treasure_room);
+            }
+        }
+        rooms.extend(treasure_rooms.into_iter());
 
         let line_of_sight_x = spawns[0].x;
         let line_of_sight_y = spawns[0].y;
@@ -406,9 +471,12 @@ impl Level {
 
     pub fn open_door(&mut self, x: i32, y: i32) {
         if x >= 0 && x < LEVEL_WIDTH as i32 && y >= 0 && y < LEVEL_HEIGHT as i32 {
-            if let Terrain::Door = self.terrain[x as usize + y as usize * LEVEL_WIDTH] {
-                self.terrain[x as usize + y as usize * LEVEL_WIDTH] = Terrain::DoorOpen;
-                self.animation_state.borrow_mut().door_openings.insert((x, y), 0.066);
+            match self.terrain[x as usize + y as usize * LEVEL_WIDTH] {
+                Terrain::Door | Terrain::LockedDoor { .. } => {
+                    self.terrain[x as usize + y as usize * LEVEL_WIDTH] = Terrain::DoorOpen;
+                    self.animation_state.borrow_mut().door_openings.insert((x, y), 0.066);
+                }
+                _ => {}
             }
         }
     }
@@ -600,6 +668,12 @@ impl Level {
                         (TileGraphic::WallTop, 0, 12, NO_FLAGS),
                     ],
 
+                    // Locked doors
+                    (Terrain::LockedDoor { .. }, _, Terrain::Wall, _, Terrain::Wall, _) => &[
+                        (TileGraphic::Ground, 0, 0, NO_FLAGS),
+                        (TileGraphic::LockedDoor, 0, -TILE_STRIDE / 2, NO_FLAGS),
+                    ],
+
                     // Open doors
                     (Terrain::DoorOpen, _, Terrain::Wall, _, Terrain::Wall, _) => &[
                         (TileGraphic::Ground, 0, 0, NO_FLAGS),
@@ -685,9 +759,10 @@ impl Level {
                             }
                         }
                     }
+
                     if !current_tile_is_in_los {
                         if dark_fade {
-                            canvas.set_draw_color(Color::RGB(0x22, 0x22, 0x33));
+                            canvas.set_draw_color(Color::RGB(0x1A, 0x1A, 0x22));
                         } else {
                             canvas.set_draw_color(Color::RGB(0x44, 0x44, 0x44));
                         }
@@ -695,7 +770,7 @@ impl Level {
                         let dx = (tile_x - self.line_of_sight_x) as f32;
                         let dy = (tile_y - self.line_of_sight_y) as f32;
                         let alpha = (0xFF as f32 * ((dx * dx + dy * dy).sqrt() / 7.0).min(1.0).powf(2.0)) as u8;
-                        canvas.set_draw_color(Color::RGBA(0x22, 0x22, 0x33, alpha));
+                        canvas.set_draw_color(Color::RGBA(0x1A, 0x1A, 0x22, alpha));
                     }
                     if !current_tile_is_in_los || dark_fade {
                         let _ = canvas.fill_rect(Rect::new(

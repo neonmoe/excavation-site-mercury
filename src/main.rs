@@ -32,7 +32,10 @@
 //! - ~~Treasure UI and treasure tiles~~
 //! - ~~Final treasure for the end of the 4th level, and run finish UI~~
 //! - ~~Stat increases at the start of each level~~
-//! - Locked rooms with treasure, openable with the Finger stat
+//! - ~~Culling the zipped binary to <1MiB~~
+//!   - ~~Fonts have way too many glyphs, probably fixable with: https://github.com/fonttools/fonttools~~
+//!   - ~~Smaller tileset png with pngquant~~
+//! - ~~Locked rooms with treasure, openable with the Finger stat~~
 //! - Hazard rooms to get treasure
 //!   - Design: hazard + challenged stat combinations (Brain is still useless)
 //! - Attack effects
@@ -44,8 +47,6 @@
 //!
 //! - Items
 //!   - Design: item storage, use, pickup UI
-//! - Culling the zipped binary to <1MiB
-//!   - Fonts have way too many glyphs, probably fixable with: https://github.com/fonttools/fonttools
 //! - Quicksaves to the proper directory
 //! - UI for saving and loading
 //! - Better hop animation, attack animation, defend animation, dying animation

@@ -172,6 +172,29 @@ impl Fighter {
         }
         if hit_terrain == Terrain::Door {
             level.open_door(new_x, new_y);
+        } else if let Terrain::LockedDoor { roll_threshold } = hit_terrain {
+            let roll = 1 + (rng.next_u32() % 6) as i32;
+            let finger = self.stats.finger;
+            if finger + roll >= roll_threshold {
+                level.open_door(new_x, new_y);
+                log.lockpicking(
+                    round,
+                    LocalizableString::DoorUnlocked {
+                        roll_threshold,
+                        roll,
+                        finger,
+                    },
+                );
+            } else {
+                log.lockpicking(
+                    round,
+                    LocalizableString::DoorUnlockingFailed {
+                        roll_threshold,
+                        roll,
+                        finger,
+                    },
+                );
+            }
         }
 
         let nth_fighter = fighters.iter().position(|f| f.stats == stats::DUMMY).unwrap_or(0);
