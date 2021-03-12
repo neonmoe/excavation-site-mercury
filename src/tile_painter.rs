@@ -8,6 +8,13 @@ const TILE_COLUMNS: i32 = 512 / TILE_STRIDE;
 const TILE_WIDTH: u32 = TILE_STRIDE as u32;
 const TILE_HEIGHT: u32 = TILE_STRIDE as u32;
 
+#[derive(Clone, Copy, PartialEq)]
+pub enum TileLayer {
+    BelowFighters,
+    AboveFighters,
+    AboveAll,
+}
+
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub enum TileGraphic {
     Ground,
@@ -41,10 +48,11 @@ pub enum TileGraphic {
 }
 
 impl TileGraphic {
-    pub const fn is_above(self) -> bool {
+    pub const fn layer(self) -> TileLayer {
         match self {
-            TileGraphic::WallTop => true,
-            _ => false,
+            TileGraphic::WallTop => TileLayer::AboveAll,
+            TileGraphic::DoorClosed => TileLayer::AboveFighters,
+            _ => TileLayer::BelowFighters,
         }
     }
 

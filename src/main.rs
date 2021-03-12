@@ -69,7 +69,7 @@ use std::time::{Duration, Instant};
 mod text_painter;
 pub use text_painter::{Font, Text, TextPainter};
 mod tile_painter;
-pub use tile_painter::{TileGraphic, TilePainter, TILE_STRIDE};
+pub use tile_painter::{TileGraphic, TileLayer, TilePainter, TILE_STRIDE};
 mod level;
 pub use level::{FighterSpawn, Level, Terrain};
 mod dungeon;
@@ -287,10 +287,18 @@ pub fn main() {
         canvas.clear();
 
         // Draw the world
-        dungeon
-            .level()
-            .draw(&mut canvas, &mut tile_painter, &camera, false, show_debug, false);
+        dungeon.level().draw(
+            &mut canvas,
+            &mut tile_painter,
+            &camera,
+            TileLayer::BelowFighters,
+            show_debug,
+            false,
+        );
         dungeon.level().draw_treasure(&mut canvas, &mut tile_painter, &camera);
+        if dungeon.is_first_level() {
+            dungeon.level().draw_shadows(&mut canvas, &mut tile_painter, &camera);
+        }
         for fighter in dungeon.fighters() {
             let selected = Some(fighter.id) == selected_fighter;
             fighter.draw(&mut canvas, &mut tile_painter, &camera, true, show_debug, selected);
@@ -302,14 +310,19 @@ pub fn main() {
         for fighter in dungeon.fighters() {
             fighter.draw_health(&mut canvas, &camera);
         }
-        if dungeon.is_first_level() {
-            dungeon.level().draw_shadows(&mut canvas, &mut tile_painter, &camera);
-        }
         dungeon.level().draw(
             &mut canvas,
             &mut tile_painter,
             &camera,
-            true,
+            TileLayer::AboveFighters,
+            show_debug,
+            false,
+        );
+        dungeon.level().draw(
+            &mut canvas,
+            &mut tile_painter,
+            &camera,
+            TileLayer::AboveAll,
             show_debug,
             !dungeon.is_first_level(),
         );

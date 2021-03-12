@@ -1,4 +1,4 @@
-use crate::{enemy_ai, stats, Camera, EnemyAi, Name, Stats, TileGraphic, TilePainter, TILE_STRIDE};
+use crate::{enemy_ai, stats, Camera, EnemyAi, Name, Stats, TileGraphic, TileLayer, TilePainter, TILE_STRIDE};
 use rand_core::RngCore;
 use rand_pcg::Pcg32;
 use sdl2::pixels::Color;
@@ -539,7 +539,7 @@ impl Level {
         canvas: &mut Canvas<RT>,
         tile_painter: &mut TilePainter,
         camera: &Camera,
-        above_layer: bool,
+        layer: TileLayer,
         show_debug: bool,
         dark_fade: bool,
     ) {
@@ -551,7 +551,7 @@ impl Level {
 
         // Precalculate line of sight (if needed)
         let mut line_of_sight = Vec::with_capacity((tiles_x * tiles_y) as usize);
-        if above_layer {
+        if layer == TileLayer::AboveAll {
             for y in 0..tiles_y {
                 let tile_y = y + offset_y;
                 for x in 0..tiles_x {
@@ -646,7 +646,7 @@ impl Level {
 
                 // The actual tile rendering
                 for (mut tile, x_offset, mut y_offset, mut flags) in tiles.into_iter() {
-                    if above_layer != tile.is_above() {
+                    if layer != tile.layer() {
                         continue;
                     }
 
@@ -675,7 +675,7 @@ impl Level {
                 }
 
                 // Line of sight stuff
-                if above_layer {
+                if layer == TileLayer::AboveAll {
                     let mut current_tile_is_in_los = false;
                     'los_check: for y_ in 0..=2 {
                         for x_ in -1..=1 {
