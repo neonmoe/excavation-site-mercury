@@ -17,6 +17,7 @@ pub const HEALTH_EMPTY: Color = Color::RGBA(0xAA, 0xAA, 0xAA, 0xAA);
 pub const HEALTH_LOW: Color = Color::RGB(0xCC, 0x33, 0x22);
 pub const HEALTH_MEDIUM: Color = Color::RGB(0xEE, 0xAA, 0x22);
 pub const HEALTH_HIGH: Color = Color::RGB(0x66, 0xCC, 0x33);
+pub const SCREEN_FADE_COLOR: Color = Color::RGBA(0x33, 0x33, 0x33, 0xBB);
 
 pub struct UserInterface {
     pub mouse_position: Point,
@@ -43,7 +44,7 @@ impl UserInterface {
         &mut self,
         canvas: &mut Canvas<RT>,
         text_painter: &mut TextPainter,
-        text: LocalizableString,
+        text: &LocalizableString,
         rect: Rect,
         enabled: bool,
     ) -> bool {
@@ -86,5 +87,35 @@ impl UserInterface {
         canvas.set_clip_rect(None);
 
         enabled && hovering && self.mouse_left_released
+    }
+
+    pub fn text_box<RT: RenderTarget>(
+        &self,
+        canvas: &mut Canvas<RT>,
+        text_painter: &mut TextPainter,
+        text: &LocalizableString,
+        rect: Rect,
+        opaque: bool,
+    ) {
+        canvas.set_draw_color(if opaque {
+            HUD_BACKGROUND_OPAQUE
+        } else {
+            HUD_BACKGROUND_TRANSPARENT
+        });
+        let _ = canvas.fill_rect(rect);
+
+        let layout = LayoutSettings {
+            x: (rect.x + 8) as f32,
+            y: (rect.y + 8) as f32,
+            max_width: Some((rect.width() - 16) as f32),
+            max_height: Some((rect.height() - 16) as f32),
+            ..LayoutSettings::default()
+        };
+        canvas.set_clip_rect(rect);
+        text_painter.draw_text(canvas, &layout, &text.localize(Language::English));
+        canvas.set_clip_rect(None);
+
+        canvas.set_draw_color(HUD_BORDER);
+        let _ = canvas.draw_rect(rect);
     }
 }

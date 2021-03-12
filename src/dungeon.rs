@@ -1,6 +1,6 @@
 // TODO: DungeonEvents (and DungeonSaves) should be versioned.
 
-use crate::{EnemyAi, Fighter, FighterSpawn, GameLog, Level, Terrain};
+use crate::{EnemyAi, Fighter, FighterSpawn, GameLog, Level, StatIncrease, Terrain};
 use rand_core::SeedableRng;
 use rand_pcg::Pcg32;
 use serde::{Deserialize, Serialize};
@@ -13,6 +13,7 @@ pub enum DungeonEvent {
     MoveDown,
     MoveLeft,
     MoveRight,
+    LevelUp(StatIncrease),
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -25,6 +26,7 @@ struct DungeonState {
     ais: Vec<Option<EnemyAi>>,
     round: u64,
     level_changed: bool,
+    stat_increase_pending: bool,
 }
 
 impl DungeonState {
@@ -45,6 +47,7 @@ impl DungeonState {
             ais: Vec::new(),
             round: 1,
             level_changed: false,
+            stat_increase_pending: false,
         };
 
         for level in &state.levels {
@@ -116,6 +119,7 @@ impl DungeonState {
         self.fighters.clear();
         self.ais.clear();
         self.level_changed = true;
+        self.stat_increase_pending = self.current_level > 0;
 
         let mut skip_spawns = 0;
         if let Some(mut player) = player {
@@ -134,6 +138,13 @@ impl DungeonState {
             .skip(skip_spawns)
         {
             self.spawn_fighter(spawn);
+        }
+    }
+
+    pub fn increase_stat(&mut self, inc: StatIncrease) {
+        if self.stat_increase_pending {
+            self.fighters[0].stats.apply_increase(inc);
+            self.stat_increase_pending = false;
         }
     }
 }
@@ -201,18 +212,35 @@ impl Dungeon {
     fn apply_event_to_state(&mut self, event: DungeonEvent) {
         use DungeonEvent::*;
         match event {
-            MoveUp => self.state.move_player(0, -1),
-            MoveDown => self.state.move_player(0, 1),
-            MoveLeft => self.state.move_player(-1, 0),
-            MoveRight => self.state.move_player(1, 0),
+            MoveUp => {
+                self.state.move_player(0, -1);
+                self.state.process_turn();
+            }
+            MoveDown => {
+                self.state.move_player(0, 1);
+                self.state.process_turn();
+            }
+            MoveLeft => {
+                self.state.move_player(-1, 0);
+                self.state.process_turn();
+            }
+            MoveRight => {
+                self.state.move_player(1, 0);
+                self.state.process_turn();
+            }
+            LevelUp(inc) => self.state.increase_stat(inc),
         }
-        self.state.process_turn()
     }
 
     pub fn can_run_events(&self) -> bool {
         let player = &self.state.fighters[0];
         self.state.levels[self.state.current_level].get_terrain(player.x, player.y) != Terrain::Exit
             && !self.is_game_over()
+            && !self.stat_increase_pending()
+    }
+
+    pub fn stat_increase_pending(&self) -> bool {
+        self.state.stat_increase_pending
     }
 
     pub fn is_game_over(&self) -> bool {

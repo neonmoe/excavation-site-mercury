@@ -31,7 +31,7 @@
 //! - ~~Player death handling, game over UI~~
 //! - ~~Treasure UI and treasure tiles~~
 //! - ~~Final treasure for the end of the 4th level, and run finish UI~~
-//! - Stat increases at the start of each level
+//! - ~~Stat increases at the start of each level~~
 //! - Locked rooms with treasure, openable with the Finger stat
 //! - Hazard rooms to get treasure
 //!   - Design: hazard + challenged stat combinations (Brain is still useless)
@@ -79,7 +79,7 @@ pub use fighter::Fighter;
 mod camera;
 pub use camera::Camera;
 pub mod stats;
-pub use stats::Stats;
+pub use stats::{StatIncrease, Stats};
 mod game_log;
 pub use game_log::GameLog;
 mod localization;
@@ -395,25 +395,10 @@ pub fn main() {
                 bg_width,
                 bg_height,
             );
-            canvas.set_draw_color(interface::HUD_BACKGROUND_OPAQUE);
-            let _ = canvas.fill_rect(background_rect);
-
-            let layout = LayoutSettings {
-                x: (background_rect.x + 8) as f32,
-                y: (background_rect.y + 8) as f32,
-                max_width: Some((background_rect.width() - 16) as f32),
-                max_height: Some((background_rect.height() - 16) as f32),
-                ..LayoutSettings::default()
-            };
             let game_over_string = LocalizableString::GameOver {
                 name: dungeon.player().name.clone(),
             };
-            canvas.set_clip_rect(background_rect);
-            text_painter.draw_text(&mut canvas, &layout, &game_over_string.localize(Language::English));
-            canvas.set_clip_rect(None);
-
-            canvas.set_draw_color(interface::HUD_BORDER);
-            let _ = canvas.draw_rect(background_rect);
+            ui.text_box(&mut canvas, &mut text_painter, &game_over_string, background_rect, true);
 
             let restart_button = Rect::new(
                 background_rect.x + 10,
@@ -424,7 +409,7 @@ pub fn main() {
             if ui.button(
                 &mut canvas,
                 &mut text_painter,
-                LocalizableString::RestartButton,
+                &LocalizableString::RestartButton,
                 restart_button,
                 true,
             ) {
@@ -440,7 +425,7 @@ pub fn main() {
             if ui.button(
                 &mut canvas,
                 &mut text_painter,
-                LocalizableString::SubmitToLeaderboardsButton,
+                &LocalizableString::SubmitToLeaderboardsButton,
                 submit_button,
                 false,
             ) {
@@ -453,26 +438,13 @@ pub fn main() {
             let bg_width = 450;
             let bg_height = 160;
             let background_rect = Rect::new((width - 10 - bg_width) as i32, 10, bg_width, bg_height);
-            canvas.set_draw_color(interface::HUD_BACKGROUND_TRANSPARENT);
-            let _ = canvas.fill_rect(background_rect);
-
-            let layout = LayoutSettings {
-                x: (background_rect.x + 8) as f32,
-                y: (background_rect.y + 8) as f32,
-                max_width: Some((background_rect.width() - 16) as f32),
-                max_height: Some((background_rect.height() - 16) as f32),
-                ..LayoutSettings::default()
-            };
-            canvas.set_clip_rect(background_rect);
-            text_painter.draw_text(
+            ui.text_box(
                 &mut canvas,
-                &layout,
-                &LocalizableString::Victory.localize(Language::English),
+                &mut text_painter,
+                &LocalizableString::Victory,
+                background_rect,
+                false,
             );
-            canvas.set_clip_rect(None);
-
-            canvas.set_draw_color(interface::HUD_BORDER);
-            let _ = canvas.draw_rect(background_rect);
 
             let restart_button = Rect::new(
                 background_rect.x + 10,
@@ -483,7 +455,7 @@ pub fn main() {
             if ui.button(
                 &mut canvas,
                 &mut text_painter,
-                LocalizableString::RestartButton,
+                &LocalizableString::RestartButton,
                 restart_button,
                 true,
             ) {
@@ -499,11 +471,68 @@ pub fn main() {
             if ui.button(
                 &mut canvas,
                 &mut text_painter,
-                LocalizableString::SubmitToLeaderboardsButton,
+                &LocalizableString::SubmitToLeaderboardsButton,
                 submit_button,
                 false,
             ) {
                 log::error!("Not implemented yet.");
+            }
+        }
+
+        // Draw the stat increase screen (if available)
+        if dungeon.stat_increase_pending() {
+            canvas.set_draw_color(interface::SCREEN_FADE_COLOR);
+            let _ = canvas.fill_rect(Rect::new(0, 0, width, height));
+
+            let bg_width = 900.min(width - 20);
+            let bg_height = (380 + 2 * (600 - bg_width as i32).max(0) as u32).min(height - 10);
+            let background_rect = Rect::new(
+                (width - bg_width) as i32 / 2,
+                (height - bg_height) as i32 / 2,
+                bg_width,
+                bg_height,
+            );
+            ui.text_box(
+                &mut canvas,
+                &mut text_painter,
+                &LocalizableString::LevelUpMessage(2),
+                background_rect,
+                true,
+            );
+
+            use StatIncrease::*;
+            for (i, inc) in [Arm, Leg, Finger, Brain].iter().enumerate() {
+                let padding = 10;
+                let section_width = (background_rect.width() - padding as u32) / 4;
+                let section_rect = Rect::new(
+                    background_rect.x + padding + (section_width as i32) * i as i32,
+                    background_rect.y + 160,
+                    section_width - padding as u32,
+                    background_rect.height() - 170,
+                );
+                ui.text_box(
+                    &mut canvas,
+                    &mut text_painter,
+                    &LocalizableString::StatInfo(*inc),
+                    section_rect,
+                    true,
+                );
+
+                let button_rect = Rect::new(
+                    section_rect.x + 10,
+                    section_rect.y + section_rect.height() as i32 - 46,
+                    section_rect.width() - 20,
+                    36,
+                );
+                if ui.button(
+                    &mut canvas,
+                    &mut text_painter,
+                    &LocalizableString::IncreaseStatButton(*inc),
+                    button_rect,
+                    true,
+                ) {
+                    dungeon.run_event(DungeonEvent::LevelUp(*inc));
+                }
             }
         }
 

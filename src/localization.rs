@@ -1,4 +1,4 @@
-use crate::{interface, Font, Text};
+use crate::{interface, Font, StatIncrease, Text};
 use sdl2::pixels::Color;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -93,6 +93,9 @@ pub enum LocalizableString {
 
     RestartButton,
     SubmitToLeaderboardsButton,
+    LevelUpMessage(u32),
+    StatInfo(StatIncrease),
+    IncreaseStatButton(StatIncrease),
 }
 
 impl LocalizableString {
@@ -279,6 +282,70 @@ impl LocalizableString {
                 Language::Debug => unreachable!(),
                 Language::English => vec![
                     Text(Font::RegularUi, SMALLER_FONT_SIZE, Color::WHITE, String::from("Submit to the leaderboards"))
+                ],
+            },
+
+            LocalizableString::LevelUpMessage(current_level) => match language {
+                Language::Debug => unreachable!(),
+                Language::English => vec![
+                    Text(Font::RegularUi, BIGGER_FONT_SIZE, Color::WHITE, String::from("Experience gained.\n\n")),
+                    Text(Font::RegularUi, NORMAL_FONT_SIZE, Color::WHITE, match current_level {
+                        0 => String::from("Living blobs of coolant everywhere, giant roaches crawling in every corner, \
+                                           what's next? The learning oppoturnities are endless, if nothing else.\n"),
+                        1 => String::from("The darkness is starting to get to you, as you delve further away from \
+                                           Sol's light. Treasure awaits.\n"),
+                        2 => String::from("As you climb down the rope, the temperature gauge in your spacesuit \
+                                           starts to climb, uncomfortably fast. Fortunate that the suit is \
+                                           designed for extreme situations, it seems the motherload is near \
+                                           the core of the asteroid. The depths await.\n"),
+                        _ => String::from("[static noise]\n"),
+                    })
+                ],
+            },
+
+            LocalizableString::StatInfo(stat) => match language {
+                Language::Debug => unreachable!(),
+                Language::English =>match stat {
+                    StatIncrease::Arm => vec![
+                        Text(Font::RegularUi, NORMAL_FONT_SIZE, Color::WHITE,
+                             String::from("Arm\n")),
+                        Text(Font::RegularUi, SMALLER_FONT_SIZE, Color::WHITE,
+                             String::from("\nReflects your ability to smash heads in. \
+                                           Each +1 is equivalent to rolling 1 better."))
+                    ],
+                    StatIncrease::Leg => vec![
+                        Text(Font::RegularUi, NORMAL_FONT_SIZE, Color::WHITE,
+                             String::from("Leg\n")),
+                        Text(Font::RegularUi, SMALLER_FONT_SIZE, Color::WHITE,
+                             String::from("\nMakes you harder to hit. Each +1 is equivalent \
+                                           to enemies rolling 1 worse."))
+                    ],
+                    StatIncrease::Finger => vec![
+                        Text(Font::RegularUi, NORMAL_FONT_SIZE, Color::WHITE,
+                             String::from("Finger\n")),
+                        Text(Font::RegularUi, SMALLER_FONT_SIZE, Color::WHITE,
+                             String::from("\nAllows you to pick locks, to loot leftover \
+                                           treasure from previous, security conscious miners."))
+                    ],
+                    StatIncrease::Brain => vec![
+                        Text(Font::RegularUi, NORMAL_FONT_SIZE, Color::WHITE,
+                             String::from("Brain\n")),
+                        Text(Font::RegularUi, SMALLER_FONT_SIZE, Color::WHITE,
+                             String::from("\nMakes you smart. For all those logic puzzles \
+                                           the ancients left for you to solve."))
+                    ],
+                }
+            },
+
+            LocalizableString::IncreaseStatButton(stat) => match language {
+                Language::Debug => unreachable!(),
+                Language::English => vec![
+                    Text(Font::RegularUi, NORMAL_FONT_SIZE, Color::WHITE, match stat {
+                        StatIncrease::Arm => String::from("+2 to Arm"),
+                        StatIncrease::Leg => String::from("+2 to Leg"),
+                        StatIncrease::Finger => String::from("+2 to Finger"),
+                        StatIncrease::Brain => String::from("+2 to Brain"),
+                    })
                 ],
             },
         }

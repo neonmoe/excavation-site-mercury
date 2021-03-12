@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 pub const DUMMY: Stats = Stats {
     max_health: 1,
     health: 1,
@@ -64,6 +66,14 @@ pub const SENTIENT_METAL: Stats = Stats {
     treasure: 6,
 };
 
+#[derive(Clone, Copy, Serialize, Deserialize, PartialEq, Debug)]
+pub enum StatIncrease {
+    Arm,
+    Leg,
+    Finger,
+    Brain,
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Stats {
     /// Cap for [Stats::health].
@@ -86,4 +96,15 @@ pub struct Stats {
     pub flying: bool,
     /// The amount of treasure this fighter drops when dead.
     pub treasure: i32,
+}
+
+impl Stats {
+    pub fn apply_increase(&mut self, inc: StatIncrease) {
+        match inc {
+            StatIncrease::Arm => self.arm += 2,
+            StatIncrease::Leg => self.leg += 2,
+            StatIncrease::Finger => self.finger += 2,
+            StatIncrease::Brain => self.brain += 2,
+        }
+    }
 }
