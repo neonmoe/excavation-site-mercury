@@ -60,6 +60,8 @@
 //! - Leaderboard for comparing treasure scores
 //! - Saving and loading UI
 
+#![windows_subsystem = "windows"]
+
 use fontdue::layout::LayoutSettings;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
