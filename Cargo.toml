@@ -1,6 +1,6 @@
 [package]
 name = "excavation-site-mercury"
-version = "0.1.0"
+version = "0.2.0-alpha.0"
 authors = ["Jens Pitkanen <jens@neon.moe>"]
 edition = "2018"
 description = "A roguelike set on a space mining colony, written in Rust with SDL2"
