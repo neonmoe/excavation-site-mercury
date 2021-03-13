@@ -9,6 +9,29 @@ use sdl2::rect::{Point, Rect};
 use sdl2::render::{BlendMode, Canvas, RenderTarget};
 use std::cell::RefCell;
 
+#[derive(Clone, Debug)]
+struct ParticleEffect {
+    x: i32,
+    y: i32,
+    angle: f64,
+    tile: TileGraphic,
+    duration: f32,
+    opacity: f32,
+}
+
+impl ParticleEffect {
+    pub fn new(x: i32, y: i32, angle: f64, tile: TileGraphic, duration: f32) -> ParticleEffect {
+        ParticleEffect {
+            x,
+            y,
+            angle,
+            tile,
+            duration,
+            opacity: 1.0,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 struct Animation {
     // Values applied to the sprite.
@@ -17,6 +40,7 @@ struct Animation {
     offset_y: i32,
     width_inc: i32,
     height_inc: i32,
+    particles: Vec<ParticleEffect>,
 
     // Animation data.
     move_from_x: i32,
@@ -83,6 +107,11 @@ impl Fighter {
         let exit_animation = level.get_terrain(self.x, self.y) == Terrain::Exit;
         let mut animation = self.animation.borrow_mut();
 
+        for particle in &mut animation.particles {
+            particle.opacity -= delta_time / particle.duration;
+        }
+        animation.particles.retain(|particle| particle.opacity > 0.0);
+
         if animation.move_progress > 0.0 {
             let duration = if exit_animation {
                 0.35
@@ -99,10 +128,7 @@ impl Fighter {
             animation.offset_y = ((dy as f32 * animation.move_progress.min(1.0)) * TILE_STRIDE as f32) as i32;
 
             if !self.stats.flying {
-                // This function goes up a little bit, then down a bit more, then up a little bit again.
-                // Kinda like the shape of M, except the middle dip is deeper than the two peaks.
                 let f = |x: f32| 1.0 + (x * (4.0 - 4.0 * x)) * 0.05;
-
                 let move_squish_width_ratio = f(animation.move_progress.min(1.0));
                 animation.width_inc = (TILE_STRIDE as f32 * move_squish_width_ratio) as i32 - TILE_STRIDE;
                 animation.height_inc = (TILE_STRIDE as f32 / move_squish_width_ratio) as i32 - TILE_STRIDE;
@@ -162,8 +188,9 @@ impl Fighter {
             .filter(|fighter| fighter.x == new_x && fighter.y == new_y && fighter.stats.health > 0)
         {
             hit_something = !hit_fighter.walkable();
-            hit_fighter.take_damage(&self, level, rng, log, round);
+            let damage = hit_fighter.take_damage(&self, level, rng, log, round);
             hit_fighter.previously_hit_from = Some((-dx, -dy));
+            hit_fighter.spawn_hit_fx(rng, damage);
         }
 
         let hit_terrain = level.get_terrain(new_x, new_y);
@@ -200,14 +227,16 @@ impl Fighter {
         let nth_fighter = fighters.iter().position(|f| f.stats == stats::DUMMY).unwrap_or(0);
         let anim_offset = nth_fighter as f32 / fighters.len() as f32;
 
-        let mut animation = self.animation.borrow_mut();
-        animation.move_from_x = self.x;
-        animation.move_from_y = self.y;
-        animation.move_progress = 1.0 + anim_offset;
-        if dx < 0 {
-            animation.flip_h = true;
-        } else if dx > 0 {
-            animation.flip_h = false;
+        {
+            let mut animation = self.animation.borrow_mut();
+            animation.move_from_x = self.x;
+            animation.move_from_y = self.y;
+            animation.move_progress = 1.0 + anim_offset;
+            if dx < 0 {
+                animation.flip_h = true;
+            } else if dx > 0 {
+                animation.flip_h = false;
+            }
         }
 
         if !hit_something {
@@ -216,7 +245,14 @@ impl Fighter {
         }
     }
 
-    fn take_damage(&mut self, from: &Fighter, level: &mut Level, rng: &mut Pcg32, log: &mut GameLog, round: u64) {
+    fn take_damage(
+        &mut self,
+        from: &Fighter,
+        level: &mut Level,
+        rng: &mut Pcg32,
+        log: &mut GameLog,
+        round: u64,
+    ) -> i32 {
         let hit_roll = (rng.next_u32() % 6) as i32 + 1;
         let modifier = from.stats.arm - self.stats.leg;
         if hit_roll >= -modifier {
@@ -240,6 +276,8 @@ impl Fighter {
                     level.put_treasure(self.x, self.y, self.stats.treasure);
                 }
             }
+
+            damage
         } else {
             log.combat(
                 round,
@@ -251,6 +289,56 @@ impl Fighter {
                     defender_leg: self.stats.leg,
                 },
             );
+
+            0
+        }
+    }
+
+    fn spawn_hit_fx(&self, rng: &mut Pcg32, damage: i32) {
+        let mut animation = self.animation.borrow_mut();
+        for i in 0..damage {
+            animation.particles.push(ParticleEffect::new(
+                0,
+                TILE_STRIDE / 4 + i * 20 - damage * 10,
+                0.0,
+                if damage > 0 {
+                    TileGraphic::AttackHit
+                } else {
+                    TileGraphic::AttackMiss
+                },
+                0.75,
+            ));
+        }
+    }
+
+    fn spawn_laser_cross(&self, level: &Level) {
+        let mut animation = self.animation.borrow_mut();
+        let (mut x0, mut y0, mut x1, mut y1) = (0, 0, 0, 0);
+        while !level.get_terrain(self.x + x0, self.y + y0).unwalkable() {
+            x0 -= 1;
+        }
+        while !level.get_terrain(self.x + x1, self.y + y0).unwalkable() {
+            x1 += 1;
+        }
+        while !level.get_terrain(self.x + (x0 + x1) / 2, self.y + y0).unwalkable() {
+            y0 -= 1;
+        }
+        while !level.get_terrain(self.x + (x0 + x1) / 2, self.y + y1).unwalkable() {
+            y1 += 1;
+        }
+
+        for x in x0..=x1 {
+            let (x, y) = (x * TILE_STRIDE, 0);
+            animation
+                .particles
+                .push(ParticleEffect::new(x, y, 0.0, TileGraphic::LaserBeam, 1.0));
+        }
+
+        for y in y0..=y1 {
+            let (x, y) = (0, y * TILE_STRIDE);
+            animation
+                .particles
+                .push(ParticleEffect::new(x, y, 90.0, TileGraphic::LaserBeam, 1.0));
         }
     }
 
@@ -341,6 +429,28 @@ impl Fighter {
             health_rect.resize(health_rect.width() + 2, health_rect.height() + 2);
             let _ = canvas.draw_rect(health_rect);
         }
+    }
+
+    pub fn draw_particles<RT: RenderTarget>(
+        &self,
+        canvas: &mut Canvas<RT>,
+        tile_painter: &mut TilePainter,
+        camera: &Camera,
+    ) {
+        let animation = self.animation.borrow();
+        for particle in &animation.particles {
+            // Note: setting alpha mod for each draw probably causes a
+            // draw call per particle, which is bad, but hopefully it
+            // won't become a real issue.
+            tile_painter
+                .tileset
+                .set_alpha_mod((0xFF as f32 * particle.opacity) as u8);
+            let x = self.x * TILE_STRIDE + particle.x - camera.x + animation.offset_x;
+            let y = self.y * TILE_STRIDE + particle.y - camera.y + animation.offset_y;
+            let center = Point::new(TILE_STRIDE / 2, TILE_STRIDE / 2);
+            tile_painter.draw_tile_rotated(canvas, particle.tile, x, y, particle.angle, center);
+        }
+        tile_painter.tileset.set_alpha_mod(0xFF);
     }
 
     pub fn mouse_over(&self, camera: &Camera, mouse: Point) -> bool {

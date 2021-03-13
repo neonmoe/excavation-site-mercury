@@ -37,14 +37,14 @@
 //!   - ~~Smaller tileset png with pngquant~~
 //! - ~~Locked rooms with treasure, openable with the Finger stat~~
 //! - ~~Different types of wall and floor for 4th level~~
-//! - Hazard rooms to get treasure
-//!   - Design: hazard + challenged stat combinations (Brain is still useless)
-//! - Attack effects
-//!   - Required to implement sentient metal's ranged attack
+//! - ~~Attack effects~~
+//!   - ~~Required to implement sentient metal's ranged attack~~
 //! - Sentient Metal AI
 //!
 //! And here's some "polish" features I'll add if I have the time:
 //!
+//! - Hazard rooms to get treasure
+//!   - Design: hazard + challenged stat combinations (Brain is still useless)
 //! - Items
 //!   - Design: item storage, use, pickup UI
 //! - Quicksaves to the proper directory
@@ -310,7 +310,7 @@ pub fn main() {
             fighter.draw(&mut canvas, &mut tile_painter, &camera, false, show_debug, selected);
         }
         for fighter in dungeon.fighters() {
-            fighter.draw_health(&mut canvas, &camera);
+            fighter.draw_particles(&mut canvas, &mut tile_painter, &camera);
         }
         dungeon.level().draw(
             &mut canvas,
@@ -321,6 +321,9 @@ pub fn main() {
             false,
             dungeon.level_nth() >= 3,
         );
+        for fighter in dungeon.fighters() {
+            fighter.draw_health(&mut canvas, &camera);
+        }
         dungeon.level().draw(
             &mut canvas,
             &mut tile_painter,
