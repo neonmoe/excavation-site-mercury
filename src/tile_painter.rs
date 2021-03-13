@@ -46,12 +46,15 @@ pub enum TileGraphic {
     MineralsScattered,
     FinalTreasureMinerals,
     LockedDoor,
+    HotGround,
+    HotWallTop,
+    HotWallSide,
 }
 
 impl TileGraphic {
     pub const fn layer(self) -> TileLayer {
         match self {
-            TileGraphic::WallTop => TileLayer::AboveAll,
+            TileGraphic::WallTop | TileGraphic::HotWallTop => TileLayer::AboveAll,
             TileGraphic::DoorClosed | TileGraphic::LockedDoor => TileLayer::AboveFighters,
             _ => TileLayer::BelowFighters,
         }

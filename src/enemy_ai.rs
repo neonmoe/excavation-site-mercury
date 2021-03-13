@@ -94,7 +94,7 @@ impl EnemyAi {
                 let player = &fighters[0];
                 let (dx, dy) = (player.x - fighter.x, player.y - fighter.y);
                 let pd = ((dx * dx + dy * dy) as f32).sqrt();
-                if pd <= distance && round % 3 < 2 {
+                if pd <= distance && round % 4 < 2 {
                     if dy != 0 {
                         fighter.step(0, dy.signum(), fighters, level, rng, log, round);
                     } else {

@@ -125,6 +125,7 @@ pub struct Level {
     terrain: [Terrain; LEVEL_WIDTH * LEVEL_HEIGHT],
     rooms: Vec<Rect>,
     treasure: [Option<Treasure>; LEVEL_WIDTH * LEVEL_HEIGHT],
+    line_of_sight_cache: RefCell<HashMap<(Point, Rect), Vec<bool>>>,
 
     /// Intended to only be used in the drawing functions, mutated by
     /// `.animate()`. In a RefCell, because this is "stateful" per
@@ -455,6 +456,7 @@ impl Level {
             rooms,
             treasure,
             animation_state: RefCell::new(LevelAnimation::default()),
+            line_of_sight_cache: RefCell::new(HashMap::new()),
         }
     }
 
@@ -610,6 +612,7 @@ impl Level {
         layer: TileLayer,
         show_debug: bool,
         dark_fade: bool,
+        magma_level: bool,
     ) {
         let offset_x = camera.x / TILE_STRIDE;
         let offset_y = camera.y / TILE_STRIDE;
@@ -618,16 +621,29 @@ impl Level {
         let tiles_y = screen_height as i32 / TILE_STRIDE + 2;
 
         // Precalculate line of sight (if needed)
-        let mut line_of_sight = Vec::with_capacity((tiles_x * tiles_y) as usize);
-        if layer == TileLayer::AboveAll {
-            for y in 0..tiles_y {
-                let tile_y = y + offset_y;
-                for x in 0..tiles_x {
-                    let tile_x = x + offset_x;
-                    line_of_sight.push(self.in_line_of_sight(tile_x, tile_y, canvas, camera, show_debug));
+        let mut los_cache = self.line_of_sight_cache.borrow_mut();
+        let line_of_sight: &[bool] = if layer == TileLayer::AboveAll {
+            let key = (
+                Point::new(self.line_of_sight_x, self.line_of_sight_y),
+                Rect::new(offset_x, offset_y, tiles_x as u32, tiles_y as u32),
+            );
+            if let Some(cached_los) = los_cache.get(&key) {
+                cached_los
+            } else {
+                let mut line_of_sight = Vec::with_capacity((tiles_x * tiles_y) as usize);
+                for y in 0..tiles_y {
+                    let tile_y = y + offset_y;
+                    for x in 0..tiles_x {
+                        let tile_x = x + offset_x;
+                        line_of_sight.push(self.in_line_of_sight(tile_x, tile_y, canvas, camera, show_debug));
+                    }
                 }
+                los_cache.insert(key, line_of_sight);
+                los_cache.get(&key).as_ref().unwrap()
             }
-        }
+        } else {
+            &[]
+        };
         let in_line_of_sight = |x: i32, y: i32| {
             if x < 0 || y < 0 || x >= tiles_x || y >= tiles_y {
                 false
@@ -648,7 +664,15 @@ impl Level {
                 const FLAG_FLIP_V: u32 = 1 << 3; // Flip vertically
                 const FLAG_FLIP_BOTH: u32 = FLAG_FLIP_H | FLAG_FLIP_V;
 
-                let tiles: &[(TileGraphic, i32, i32, u32)] = match (
+                let (ground, wall_side, wall_top) = if magma_level {
+                    use TileGraphic::*;
+                    (HotGround, HotWallSide, HotWallTop)
+                } else {
+                    use TileGraphic::*;
+                    (Ground, WallSide, WallTop)
+                };
+
+                let tiles: Vec<(TileGraphic, i32, i32, u32)> = match (
                     terrain,                              // tile at cursor
                     self.get_terrain(tile_x, tile_y + 1), // tile below cursor
                     self.get_terrain(tile_x + 1, tile_y), // tile right of cursor
@@ -657,65 +681,70 @@ impl Level {
                     self.get_terrain(tile_x, tile_y + 2), // tile two tiles below cursor
                 ) {
                     // Closed doors
-                    (Terrain::Door, _, Terrain::Wall, _, Terrain::Wall, _) => &[
-                        (TileGraphic::Ground, 0, 0, NO_FLAGS),
+                    (Terrain::Door, _, Terrain::Wall, _, Terrain::Wall, _) => vec![
+                        (ground, 0, 0, NO_FLAGS),
                         (TileGraphic::DoorClosed, 0, -TILE_STRIDE / 2, NO_FLAGS),
                     ],
-                    (Terrain::Door, Terrain::Wall, _, Terrain::Wall, _, _) => &[
-                        (TileGraphic::Ground, 0, 0, NO_FLAGS),
+                    (Terrain::Door, Terrain::Wall, _, Terrain::Wall, _, _) => vec![
+                        (ground, 0, 0, NO_FLAGS),
                         (TileGraphic::SideDoorClosed, 0, -TILE_STRIDE + 12, FLAG_SHDW),
                         (TileGraphic::SideDoorClosed, 0, 12, FLAG_SHDW), // For the shadow
-                        (TileGraphic::WallTop, 0, 12, NO_FLAGS),
+                        (wall_top, 0, 12, NO_FLAGS),
                     ],
 
                     // Locked doors
-                    (Terrain::LockedDoor { .. }, _, Terrain::Wall, _, Terrain::Wall, _) => &[
-                        (TileGraphic::Ground, 0, 0, NO_FLAGS),
+                    (Terrain::LockedDoor { .. }, _, Terrain::Wall, _, Terrain::Wall, _) => vec![
+                        (ground, 0, 0, NO_FLAGS),
                         (TileGraphic::LockedDoor, 0, -TILE_STRIDE / 2, NO_FLAGS),
                     ],
 
                     // Open doors
-                    (Terrain::DoorOpen, _, Terrain::Wall, _, Terrain::Wall, _) => &[
-                        (TileGraphic::Ground, 0, 0, NO_FLAGS),
+                    (Terrain::DoorOpen, _, Terrain::Wall, _, Terrain::Wall, _) => vec![
+                        (ground, 0, 0, NO_FLAGS),
                         (TileGraphic::DoorOpen, 0, -TILE_STRIDE / 2, NO_FLAGS),
                     ],
-                    (Terrain::DoorOpen, Terrain::Wall, _, Terrain::Wall, _, _) => &[
-                        (TileGraphic::Ground, 0, 0, NO_FLAGS),
+                    (Terrain::DoorOpen, Terrain::Wall, _, Terrain::Wall, _, _) => vec![
+                        (ground, 0, 0, NO_FLAGS),
                         (TileGraphic::SideDoorOpen, 0, 0, NO_FLAGS),
-                        (TileGraphic::WallTop, 0, 12, NO_FLAGS),
+                        (wall_top, 0, 12, NO_FLAGS),
                     ],
 
                     // Tops of walls
-                    (_, Terrain::Wall, _, _, _, _) => &[(TileGraphic::WallTop, 0, 0, NO_FLAGS)],
+                    (_, Terrain::Wall, _, _, _, _) => vec![(wall_top, 0, 0, NO_FLAGS)],
                     // Sides of walls
-                    (Terrain::Wall, _, _, _, _, _) => &[(TileGraphic::WallSide, 0, 0, NO_FLAGS)],
+                    (Terrain::Wall, _, _, _, _, _) => vec![(wall_side, 0, 0, NO_FLAGS)],
 
                     // Floors (with varying corner shadows)
-                    (Terrain::Floor, _, t, _, _, Terrain::Wall) if t != Terrain::Floor => &[
+                    (Terrain::Floor, _, t, _, _, Terrain::Wall) if t != Terrain::Floor => vec![
                         // Bottom-right
-                        (TileGraphic::Ground, 0, 0, NO_FLAGS),
+                        (ground, 0, 0, NO_FLAGS),
                         (TileGraphic::CornerShadowTopLeft, 0, 0, FLAG_FLIP_BOTH),
                     ],
-                    (Terrain::Floor, _, _, _, t, Terrain::Wall) if t != Terrain::Floor => &[
+                    (Terrain::Floor, _, _, _, t, Terrain::Wall) if t != Terrain::Floor => vec![
                         // Bottom-left
-                        (TileGraphic::Ground, 0, 0, NO_FLAGS),
+                        (ground, 0, 0, NO_FLAGS),
                         (TileGraphic::CornerShadowTopLeft, 0, 0, FLAG_FLIP_V),
                     ],
-                    (Terrain::Floor, _, t, Terrain::Wall, _, _) if t != Terrain::Floor => &[
+                    (Terrain::Floor, _, t, Terrain::Wall, _, _) if t != Terrain::Floor => vec![
                         // Top-right
-                        (TileGraphic::Ground, 0, 0, NO_FLAGS),
+                        (ground, 0, 0, NO_FLAGS),
                         (TileGraphic::CornerShadowTopLeft, 0, 0, FLAG_FLIP_H),
                     ],
-                    (Terrain::Floor, _, _, Terrain::Wall, t, _) if t != Terrain::Floor => &[
+                    (Terrain::Floor, _, _, Terrain::Wall, t, _) if t != Terrain::Floor => vec![
                         // Top-left
-                        (TileGraphic::Ground, 0, 0, NO_FLAGS),
+                        (ground, 0, 0, NO_FLAGS),
                         (TileGraphic::CornerShadowTopLeft, 0, 0, NO_FLAGS),
                     ],
-                    (Terrain::Floor, _, _, _, _, _) => &[(TileGraphic::Ground, 0, 0, NO_FLAGS)],
-                    (Terrain::Exit, _, _, _, _, _) => &[(TileGraphic::LevelExit, 0, 0, NO_FLAGS)],
-                    (Terrain::FinalTreasure, _, _, _, _, _) => &[(TileGraphic::FinalTreasureMinerals, 0, 0, NO_FLAGS)],
+                    (Terrain::Floor, _, _, _, _, _) => vec![(ground, 0, 0, NO_FLAGS)],
+                    (Terrain::Exit, _, _, _, _, _) => {
+                        vec![(ground, 0, 0, NO_FLAGS), (TileGraphic::LevelExit, 0, 0, NO_FLAGS)]
+                    }
+                    (Terrain::FinalTreasure, _, _, _, _, _) => vec![
+                        (ground, 0, 0, NO_FLAGS),
+                        (TileGraphic::FinalTreasureMinerals, 0, 0, NO_FLAGS),
+                    ],
 
-                    (_, _, _, _, _, _) => &[],
+                    (_, _, _, _, _, _) => vec![],
                 };
 
                 // The actual tile rendering
@@ -769,7 +798,8 @@ impl Level {
                     } else if dark_fade {
                         let dx = (tile_x - self.line_of_sight_x) as f32;
                         let dy = (tile_y - self.line_of_sight_y) as f32;
-                        let alpha = (0xFF as f32 * ((dx * dx + dy * dy).sqrt() / 7.0).min(1.0).powf(2.0)) as u8;
+                        let range = if magma_level { 5.5 } else { 7.0 };
+                        let alpha = (0xFF as f32 * ((dx * dx + dy * dy).sqrt() / range).min(1.0).powf(2.0)) as u8;
                         canvas.set_draw_color(Color::RGBA(0x1A, 0x1A, 0x22, alpha));
                     }
                     if !current_tile_is_in_los || dark_fade {

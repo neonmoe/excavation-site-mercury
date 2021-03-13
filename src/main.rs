@@ -36,12 +36,12 @@
 //!   - ~~Fonts have way too many glyphs, probably fixable with: https://github.com/fonttools/fonttools~~
 //!   - ~~Smaller tileset png with pngquant~~
 //! - ~~Locked rooms with treasure, openable with the Finger stat~~
+//! - ~~Different types of wall and floor for 4th level~~
 //! - Hazard rooms to get treasure
 //!   - Design: hazard + challenged stat combinations (Brain is still useless)
 //! - Attack effects
 //!   - Required to implement sentient metal's ranged attack
 //! - Sentient Metal AI
-//! - Different types of wall and floor for 3rd and 4th levels
 //!
 //! And here's some "polish" features I'll add if I have the time:
 //!
@@ -295,6 +295,7 @@ pub fn main() {
             TileLayer::BelowFighters,
             show_debug,
             false,
+            dungeon.level_nth() >= 3,
         );
         dungeon.level().draw_treasure(&mut canvas, &mut tile_painter, &camera);
         if dungeon.is_first_level() {
@@ -318,6 +319,7 @@ pub fn main() {
             TileLayer::AboveFighters,
             show_debug,
             false,
+            dungeon.level_nth() >= 3,
         );
         dungeon.level().draw(
             &mut canvas,
@@ -326,6 +328,7 @@ pub fn main() {
             TileLayer::AboveAll,
             show_debug,
             !dungeon.is_first_level(),
+            dungeon.level_nth() >= 3,
         );
 
         // Draw the treasure counter
