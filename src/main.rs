@@ -39,9 +39,18 @@
 //! - ~~Different types of wall and floor for 4th level~~
 //! - ~~Attack effects~~
 //!   - ~~Required to implement sentient metal's ranged attack~~
-//! - Sentient Metal AI
+//! - ~~Sentient Metal AI~~
 //!
-//! And here's some "polish" features I'll add if I have the time:
+//! Final day todos:
+//! - ~~GitHub Actions~~
+//! - ~~Keyboard controls for everything~~
+//! - Inherent level ups: Leg from walking, Arm from fighting, Finger from unlocks
+//! - Remove Brain, it isn't used
+//! - Class choice UI (different sets of starting stats)
+//! - Leaderboard for comparing treasure scores
+//!
+//! And here's the features I had planned but didn't have the time to
+//! implement:
 //!
 //! - Hazard rooms to get treasure
 //!   - Design: hazard + challenged stat combinations (Brain is still useless)
@@ -52,12 +61,10 @@
 //! - Better hop animation, attack animation, defend animation, dying animation
 //!   - Design: generic animation struct
 //! - Main menu
-//! - Class choice UI (different sets of starting stats)
 //! - Volume settings
 //! - Sound effects
 //! - Background loop (music or ambient sfx)
 //! - Mouse control (pathfinding)
-//! - Leaderboard for comparing treasure scores
 //! - Saving and loading UI
 
 #![windows_subsystem = "windows"]

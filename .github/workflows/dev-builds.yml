@@ -1,4 +1,4 @@
-name: distributable-build
+name: dev-builds
 
 on:
   push:
@@ -24,11 +24,13 @@ jobs:
     - name: Post-process
       run: |
         strip target/release/excavation-site-mercury
+        mv target/release/excavation-site-mercury excavation-site-mercury
+        zip excavation-site-mercury.zip excavation-site-mercury
     - name: Upload artifact
       uses: actions/upload-artifact@v2
       with:
-        name: excavation-site-mercury-linux
-        path: target/release/excavation-site-mercury
+        name: excavation-site-mercury-linux.zip
+        path: excavation-site-mercury.zip
   build-windows:
     runs-on: windows-latest
     steps:
@@ -37,11 +39,15 @@ jobs:
       run: vcpkg.exe install sdl2:x64-windows
     - name: Build
       run: cargo build --release
+    - name: Post-process
+      run: |
+        mv target/release/excavation-site-mercury.exe excavation-site-mercury.exe
+        zip excavation-site-mercury.zip excavation-site-mercury.exe
     - name: Upload artifact
       uses: actions/upload-artifact@v2
       with:
-        name: excavation-site-mercury-windows
-        path: target/release/excavation-site-mercury.exe
+        name: excavation-site-mercury-windows.zip
+        path: excavation-site-mercury.zip
   build-macos:
     runs-on: macos-latest
     steps:
@@ -56,8 +62,10 @@ jobs:
       run: |
         cargo bundle --release
         strip target/release/bundle/osx/Excavation\ Site\ Mercury.app/Contents/MacOS/excavation-site-mercury
+        mv target/release/bundle/osx/Excavation\ Site\ Mercury.app Excavation\ Site\ Mercury.app
+        zip -r excavation-site-mercury.zip Excavation\ Site\ Mercury.app
     - name: Upload artifact
       uses: actions/upload-artifact@v2
       with:
-        name: excavation-site-mercury-macos
-        path: target/release/bundle/osx/
+        name: excavation-site-mercury-macos.zip
+        path: excavation-site-mercury.zip
