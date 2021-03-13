@@ -42,7 +42,7 @@ jobs:
     - name: Post-process
       run: |
         mv target/release/excavation-site-mercury.exe excavation-site-mercury.exe
-        zip excavation-site-mercury.zip excavation-site-mercury.exe
+        7z a excavation-site-mercury.zip excavation-site-mercury.exe
     - name: Upload artifact
       uses: actions/upload-artifact@v2
       with:
