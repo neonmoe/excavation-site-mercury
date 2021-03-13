@@ -25,6 +25,6 @@ codegen-units = 1
 [package.metadata.bundle]
 name = "Excavation Site Mercury"
 identifier = "moe.neon.excavationsitemercury"
-icon = ["src/graphics/icon.png"]
-copyright = "Copyright 2021  Jens Pitkanen <jens@neon.moe>"
+icon = ["src/graphics/icon-128x128.png"]
+copyright = "Copyright 2021  Jens Pitkanen"
 category = "RolePlaying"
