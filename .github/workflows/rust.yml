@@ -1,0 +1,71 @@
+name: distributable-build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install SDL2
+      run: |
+        sudo add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu `lsb_release -sc` main universe restricted multiverse"
+        sudo apt-get update -y -qq
+        sudo apt-get install libsdl2-dev
+    - name: Build
+      run: cargo build --release
+    - name: Post-process and zip
+      run: |
+        strip target/release/excavation-site-mercury
+        mv target/release/excavation-site-mercury excavation-site-mercury
+        zip excavation-site-mercury.zip excavation-site-mercury
+    - name: Upload artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: excavation-site-mercury-linux.zip
+        path: excavation-site-mercury.zip
+  build-windows:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install SDL2
+      run: vcpkg.exe install sdl2:x64-windows
+    - name: Build
+      run: cargo build --release
+    - name: Post-process and zip
+      run: |
+        mv target/release/excavation-site-mercury excavation-site-mercury
+        zip excavation-site-mercury.zip excavation-site-mercury
+    - name: Upload artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: excavation-site-mercury-windows.zip
+        path: excavation-site-mercury.zip
+  build-macos:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install SDL2
+      run: brew install SDL2
+    - name: Install cargo-bundle
+      run: cargo install cargo-bundle
+    - name: Build
+      run: cargo build --release
+    - name: Post-process and zip
+      run: |
+        cargo bundle --release
+        strip target/release/bundle/osx/Excavation\ Site\ Mercury.app/Contents/MacOS/excavation-site-mercury
+        mv target/release/bundle/osx/Excavation\ Site\ Mercury.app Excavation\ Site\ Mercury.app
+        zip -r excavation-site-mercury.zip Excavation\ Site\ Mercury.app
+    - name: Upload artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: excavation-site-mercury-macos.zip
+        path: excavation-site-mercury.zip
