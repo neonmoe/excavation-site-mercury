@@ -1,6 +1,6 @@
 use crate::{
-    interface, stats, Camera, GameLog, Level, LocalizableString, Name, Stats, Terrain, TileGraphic, TilePainter,
-    TILE_STRIDE,
+    interface, stats, Camera, GameLog, Level, LocalizableString, Name, StatIncrease, Stats, Terrain, TileGraphic,
+    TilePainter, TILE_STRIDE,
 };
 use rand_core::RngCore;
 use rand_pcg::Pcg32;
@@ -52,6 +52,13 @@ struct Animation {
     descent_progress: f32,
 }
 
+#[derive(Clone, Debug, Default)]
+struct Experience {
+    arm: f32,
+    leg: f32,
+    finger: f32,
+}
+
 #[derive(Clone, Debug)]
 pub struct Fighter {
     pub id: usize,
@@ -62,6 +69,7 @@ pub struct Fighter {
     pub stats: Stats,
     pub previously_hit_from: Option<(i32, i32)>,
     animation: RefCell<Animation>,
+    experience: Option<Experience>,
 }
 
 impl PartialEq for Fighter {
@@ -71,7 +79,7 @@ impl PartialEq for Fighter {
 }
 
 impl Fighter {
-    pub fn new(id: usize, name: Name, tile: TileGraphic, x: i32, y: i32, stats: Stats) -> Fighter {
+    pub fn new(id: usize, name: Name, tile: TileGraphic, x: i32, y: i32, stats: Stats, levels_up: bool) -> Fighter {
         Fighter {
             id,
             name,
@@ -81,6 +89,7 @@ impl Fighter {
             stats,
             previously_hit_from: None,
             animation: RefCell::new(Animation::default()),
+            experience: if levels_up { Some(Experience::default()) } else { None },
         }
     }
 
@@ -94,6 +103,7 @@ impl Fighter {
             stats: stats::DUMMY,
             previously_hit_from: None,
             animation: RefCell::new(Animation::default()),
+            experience: None,
         }
     }
 
@@ -192,6 +202,21 @@ impl Fighter {
             hit_something = !hit_fighter.walkable();
             hit_fighter.take_damage(&self, level, rng, log, round);
             hit_fighter.previously_hit_from = Some((-dx, -dy));
+
+            if let Some(exp) = &mut self.experience {
+                exp.arm += 1.0 / (10.0 + (self.stats.arm - 10) as f32 * 5.0);
+                while exp.arm >= 1.0 {
+                    exp.arm -= 1.0;
+                    self.stats.arm += 1;
+                    log.level_up(
+                        round,
+                        LocalizableString::StatIncreaseByTraining {
+                            stat: StatIncrease::Arm,
+                            name: self.name.clone(),
+                        },
+                    );
+                }
+            }
         }
 
         let hit_terrain = level.get_terrain(new_x, new_y);
@@ -213,6 +238,21 @@ impl Fighter {
                         finger,
                     },
                 );
+
+                if let Some(exp) = &mut self.experience {
+                    exp.finger += 1.0 / (2.0 + (self.stats.finger - 10) as f32 * 2.0);
+                    while exp.finger >= 1.0 {
+                        exp.finger -= 1.0;
+                        self.stats.finger += 1;
+                        log.level_up(
+                            round,
+                            LocalizableString::StatIncreaseByTraining {
+                                stat: StatIncrease::Finger,
+                                name: self.name.clone(),
+                            },
+                        );
+                    }
+                }
             } else {
                 log.lockpicking(
                     round,
@@ -243,6 +283,21 @@ impl Fighter {
         if !hit_something {
             self.x = new_x;
             self.y = new_y;
+
+            if let Some(exp) = &mut self.experience {
+                exp.leg += 1.0 / (50.0 + (self.stats.leg - 10) as f32 * 50.0);
+                while exp.leg >= 1.0 {
+                    exp.leg -= 1.0;
+                    self.stats.leg += 1;
+                    log.level_up(
+                        round,
+                        LocalizableString::StatIncreaseByTraining {
+                            stat: StatIncrease::Leg,
+                            name: self.name.clone(),
+                        },
+                    );
+                }
+            }
         }
     }
 

@@ -45,7 +45,7 @@
 //! - ~~GitHub Actions~~
 //! - ~~Keyboard controls for everything~~
 //! - ~~Remove Brain, it isn't used~~
-//! - Inherent level ups: Leg from walking, Arm from fighting, Finger from unlocks
+//! - ~~Inherent level ups: Leg from walking, Arm from fighting, Finger from unlocks~~
 //! - Class choice UI (different sets of starting stats)
 //! - Leaderboard for comparing treasure scores
 //!

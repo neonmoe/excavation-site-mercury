@@ -58,7 +58,7 @@ impl DungeonState {
         state
     }
 
-    pub fn spawn_fighter(&mut self, spawn: FighterSpawn) {
+    pub fn spawn_fighter(&mut self, spawn: FighterSpawn, levels_up: bool) {
         self.fighters.push(Fighter::new(
             self.fighters.len(),
             spawn.name,
@@ -66,6 +66,7 @@ impl DungeonState {
             spawn.x,
             spawn.y,
             spawn.stats,
+            levels_up,
         ));
         self.ais.push(spawn.ai);
     }
@@ -121,23 +122,21 @@ impl DungeonState {
         self.level_changed = true;
         self.stat_increase_pending = self.current_level > 0;
 
-        let mut skip_spawns = 0;
+        let mut spawns_iter = self.levels[self.current_level].spawns.clone().into_iter();
+
         if let Some(mut player) = player {
             let player_spawn = &self.levels[self.current_level].spawns[0];
             player.x = player_spawn.x;
             player.y = player_spawn.y;
             self.fighters.push(player);
             self.ais.push(None);
-            skip_spawns = 1;
+            let _ = spawns_iter.next();
+        } else {
+            self.spawn_fighter(spawns_iter.next().unwrap(), true);
         }
 
-        for spawn in self.levels[self.current_level]
-            .spawns
-            .clone()
-            .into_iter()
-            .skip(skip_spawns)
-        {
-            self.spawn_fighter(spawn);
+        for spawn in spawns_iter {
+            self.spawn_fighter(spawn, false);
         }
     }
 

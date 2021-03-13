@@ -423,7 +423,7 @@ impl Level {
         let mut iterations = 0;
         while treasure_rooms.len() < (difficulty as usize + 1) * 2 && iterations < 1_000 {
             iterations += 1;
-            let roll_threshold = 14 + (rng.next_u32() % (4 + difficulty * 5 / 3)) as i32;
+            let roll_threshold = 14 + (rng.next_u32() % (3 + difficulty * 2)) as i32;
             if let Ok(treasure_room) = try_put_room(
                 rng,
                 &mut terrain,
@@ -433,7 +433,7 @@ impl Level {
             ) {
                 for y in treasure_room.y..treasure_room.y + treasure_room.height() as i32 - 1 {
                     for x in treasure_room.x..treasure_room.x + treasure_room.width() as i32 {
-                        let amount = (rng.next_u32() % 5) as i32;
+                        let amount = (rng.next_u32() % 7) as i32 - 3;
                         if amount > 0 {
                             treasure[x as usize + y as usize * LEVEL_WIDTH] = Some(Treasure { amount });
                         }

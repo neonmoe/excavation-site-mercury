@@ -104,6 +104,11 @@ pub enum LocalizableString {
     LevelUpMessage(u32),
     StatInfo(StatIncrease),
     IncreaseStatButton(StatIncrease),
+
+    StatIncreaseByTraining {
+        stat: StatIncrease,
+        name: Name,
+    },
 }
 
 impl LocalizableString {
@@ -377,6 +382,26 @@ impl LocalizableString {
                         StatIncrease::Arm => String::from("+2 to Arm"),
                         StatIncrease::Leg => String::from("+2 to Leg"),
                         StatIncrease::Finger => String::from("+2 to Finger"),
+                    })
+                ],
+            },
+
+            LocalizableString::StatIncreaseByTraining { stat, name } => match language {
+                Language::Debug => unreachable!(),
+                Language::English => vec![
+                    Text(Font::RegularUi, NORMAL_FONT_SIZE, Color::RGB(0x44, 0xDD, 0x44), match stat {
+                        StatIncrease::Arm => format!(
+                            "{}'s Arm improved by +1 from training.",
+                            name.translated_to(language),
+                        ),
+                        StatIncrease::Leg => format!(
+                            "{}'s Leg improved by +1. Regular walks are good for your health!",
+                            name.translated_to(language),
+                        ),
+                        StatIncrease::Finger => format!(
+                            "{}'s Finger improved by +1. Each lock makes the next one a little easier.",
+                            name.translated_to(language),
+                        ),
                     })
                 ],
             },

@@ -24,6 +24,10 @@ impl GameLog {
         self.messages.push((round, message));
     }
 
+    pub fn level_up(&mut self, round: u64, message: LocalizableString) {
+        self.messages.push((round, message));
+    }
+
     pub fn draw_messages<RT: RenderTarget>(&self, canvas: &mut Canvas<RT>, text_painter: &mut TextPainter) {
         let (width, height) = canvas.output_size().map(|(a, b)| (a as i32, b as i32)).unwrap();
         let margin = 10;
