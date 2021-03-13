@@ -5,7 +5,7 @@ use rand_pcg::Pcg32;
 pub const SLIME: EnemyAi = EnemyAi::new(Personality::SelfDefense { was_attacked: false });
 pub const ROACH: EnemyAi = EnemyAi::new(Personality::Skitterer);
 pub const ROCKMAN: EnemyAi = EnemyAi::new(Personality::Hunter { distance: 4.0 });
-pub const SENTIENT_METAL: EnemyAi = EnemyAi::new(Personality::Tower { attack_interval: 3 });
+pub const SENTIENT_METAL: EnemyAi = EnemyAi::new(Personality::Tower { attack_interval: 4 });
 
 #[derive(Clone, PartialEq, Debug)]
 enum Personality {
@@ -18,7 +18,7 @@ enum Personality {
     /// Runs towards the player to attack once they're in range.
     Hunter { distance: f32 },
     /// Avoids the player, deals damage in a '+' shape periodically.
-    Tower { attack_interval: i32 },
+    Tower { attack_interval: u64 },
 }
 
 #[derive(Clone, PartialEq, Debug)]
@@ -105,7 +105,34 @@ impl EnemyAi {
                 }
             }
             Personality::Tower { attack_interval } => {
-                // TODO: Implement Tower personality
+                if round % attack_interval == 0 {
+                    fighter.cast_laser_cross(rng, fighters, level, log, round);
+                } else {
+                    // Run away from the player, avoid getting cornered (somewhat)
+                    let player = &fighters[0];
+                    let (dx, dy) = (player.x - fighter.x, player.y - fighter.y);
+                    if dx.abs() < dy.abs() {
+                        if level.get_terrain(fighter.x - dx.signum(), fighter.y).unwalkable() {
+                            if level.get_terrain(fighter.x, fighter.y - dy.signum()).unwalkable() {
+                                fighter.step(0, dy.signum(), fighters, level, rng, log, round);
+                            } else {
+                                fighter.step(0, -dy.signum(), fighters, level, rng, log, round);
+                            }
+                        } else {
+                            fighter.step(-dx.signum(), 0, fighters, level, rng, log, round);
+                        }
+                    } else {
+                        if level.get_terrain(fighter.x, fighter.y - dy.signum()).unwalkable() {
+                            if level.get_terrain(fighter.x - dx.signum(), fighter.y).unwalkable() {
+                                fighter.step(dx.signum(), 0, fighters, level, rng, log, round);
+                            } else {
+                                fighter.step(-dx.signum(), 0, fighters, level, rng, log, round);
+                            }
+                        } else {
+                            fighter.step(0, -dy.signum(), fighters, level, rng, log, round);
+                        }
+                    }
+                }
             }
         }
     }

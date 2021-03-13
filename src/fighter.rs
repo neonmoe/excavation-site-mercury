@@ -17,10 +17,11 @@ struct ParticleEffect {
     tile: TileGraphic,
     duration: f32,
     opacity: f32,
+    shadowed: bool,
 }
 
 impl ParticleEffect {
-    pub fn new(x: i32, y: i32, angle: f64, tile: TileGraphic, duration: f32) -> ParticleEffect {
+    pub fn new(x: i32, y: i32, angle: f64, tile: TileGraphic, duration: f32, shadowed: bool) -> ParticleEffect {
         ParticleEffect {
             x,
             y,
@@ -28,6 +29,7 @@ impl ParticleEffect {
             tile,
             duration,
             opacity: 1.0,
+            shadowed,
         }
     }
 }
@@ -188,9 +190,8 @@ impl Fighter {
             .filter(|fighter| fighter.x == new_x && fighter.y == new_y && fighter.stats.health > 0)
         {
             hit_something = !hit_fighter.walkable();
-            let damage = hit_fighter.take_damage(&self, level, rng, log, round);
+            hit_fighter.take_damage(&self, level, rng, log, round);
             hit_fighter.previously_hit_from = Some((-dx, -dy));
-            hit_fighter.spawn_hit_fx(rng, damage);
         }
 
         let hit_terrain = level.get_terrain(new_x, new_y);
@@ -245,17 +246,10 @@ impl Fighter {
         }
     }
 
-    fn take_damage(
-        &mut self,
-        from: &Fighter,
-        level: &mut Level,
-        rng: &mut Pcg32,
-        log: &mut GameLog,
-        round: u64,
-    ) -> i32 {
+    fn take_damage(&mut self, from: &Fighter, level: &mut Level, rng: &mut Pcg32, log: &mut GameLog, round: u64) {
         let hit_roll = (rng.next_u32() % 6) as i32 + 1;
         let modifier = from.stats.arm - self.stats.leg;
-        if hit_roll >= -modifier {
+        let damage = if hit_roll >= -modifier {
             let damage = 1 + (hit_roll + modifier) / 6;
             self.stats.health = (self.stats.health - damage).max(0);
             log.combat(
@@ -291,15 +285,17 @@ impl Fighter {
             );
 
             0
-        }
+        };
+
+        self.spawn_hit_particles(damage);
     }
 
-    fn spawn_hit_fx(&self, rng: &mut Pcg32, damage: i32) {
+    fn spawn_hit_particles(&self, damage: i32) {
         let mut animation = self.animation.borrow_mut();
-        for i in 0..damage {
+        for i in 0..damage.max(1) {
             animation.particles.push(ParticleEffect::new(
                 0,
-                TILE_STRIDE / 4 + i * 20 - damage * 10,
+                TILE_STRIDE / 4 + i * 20 - damage.max(1) * 10,
                 0.0,
                 if damage > 0 {
                     TileGraphic::AttackHit
@@ -307,11 +303,30 @@ impl Fighter {
                     TileGraphic::AttackMiss
                 },
                 0.75,
+                true,
             ));
         }
     }
 
-    fn spawn_laser_cross(&self, level: &Level) {
+    pub fn cast_laser_cross(
+        &self,
+        rng: &mut Pcg32,
+        fighters: &mut [Fighter],
+        level: &mut Level,
+        log: &mut GameLog,
+        round: u64,
+    ) {
+        let (x0, y0, x1, y1) = self.spawn_laser_cross_particles(level);
+        for fighter in fighters {
+            if fighter.x == self.x && fighter.y >= y0 && fighter.y <= y1 {
+                fighter.take_damage(&self, level, rng, log, round);
+            } else if fighter.y == self.y && fighter.x >= x0 && fighter.x <= x1 {
+                fighter.take_damage(&self, level, rng, log, round);
+            }
+        }
+    }
+
+    fn spawn_laser_cross_particles(&self, level: &Level) -> (i32, i32, i32, i32) {
         let mut animation = self.animation.borrow_mut();
         let (mut x0, mut y0, mut x1, mut y1) = (0, 0, 0, 0);
         while !level.get_terrain(self.x + x0, self.y + y0).unwalkable() {
@@ -331,15 +346,17 @@ impl Fighter {
             let (x, y) = (x * TILE_STRIDE, 0);
             animation
                 .particles
-                .push(ParticleEffect::new(x, y, 0.0, TileGraphic::LaserBeam, 1.0));
+                .push(ParticleEffect::new(x, y, 0.0, TileGraphic::LaserBeam, 0.2, false));
         }
 
         for y in y0..=y1 {
             let (x, y) = (0, y * TILE_STRIDE);
             animation
                 .particles
-                .push(ParticleEffect::new(x, y, 90.0, TileGraphic::LaserBeam, 1.0));
+                .push(ParticleEffect::new(x, y, 90.0, TileGraphic::LaserBeam, 0.2, false));
         }
+
+        (self.x + x0, self.y + y0, self.x + x1, self.y + y1)
     }
 
     fn walkable(&self) -> bool {
@@ -448,7 +465,15 @@ impl Fighter {
             let x = self.x * TILE_STRIDE + particle.x - camera.x + animation.offset_x;
             let y = self.y * TILE_STRIDE + particle.y - camera.y + animation.offset_y;
             let center = Point::new(TILE_STRIDE / 2, TILE_STRIDE / 2);
-            tile_painter.draw_tile_rotated(canvas, particle.tile, x, y, particle.angle, center);
+            if particle.shadowed {
+                // FIXME: Shadowed particles ignore angle, currently
+                tile_painter
+                    .shadow_tileset
+                    .set_alpha_mod((0xFF as f32 * particle.opacity) as u8);
+                tile_painter.draw_tile_shadowed(canvas, particle.tile, x, y, false, false);
+            } else {
+                tile_painter.draw_tile_rotated(canvas, particle.tile, x, y, particle.angle, center);
+            }
         }
         tile_painter.tileset.set_alpha_mod(0xFF);
     }

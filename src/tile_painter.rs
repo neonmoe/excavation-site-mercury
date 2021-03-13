@@ -76,7 +76,7 @@ impl TileGraphic {
 
 pub struct TilePainter<'r> {
     pub tileset: Texture<'r>,
-    shadow_tileset: Texture<'r>,
+    pub shadow_tileset: Texture<'r>,
 }
 
 impl TilePainter<'_> {
