@@ -92,7 +92,6 @@ pub enum LocalizableString {
         arm: i32,
         leg: i32,
         finger: i32,
-        brain: i32,
     },
 
     GameOver {
@@ -244,7 +243,6 @@ impl LocalizableString {
                 arm,
                 leg,
                 finger,
-                brain,
             } => match language {
                 Language::Debug => unreachable!(),
                 Language::English => vec![
@@ -278,8 +276,8 @@ impl LocalizableString {
                         NORMAL_FONT_SIZE,
                         Color::WHITE,
                         format!(
-                            "\nArm: {}\nLeg: {}\nFinger: {}\nBrain: {}\n",
-                            arm, leg, finger, brain
+                            "\nArm: {}\nLeg: {}\nFinger: {}\n",
+                            arm, leg, finger
                         ),
                     ),
                 ],
@@ -369,13 +367,6 @@ impl LocalizableString {
                                            Each +1 is equivalent to rolling 1 better when \
                                            opening locked doors.\n"))
                     ],
-                    StatIncrease::Brain => vec![
-                        Text(Font::RegularUi, NORMAL_FONT_SIZE, Color::WHITE,
-                             String::from("Brain\n")),
-                        Text(Font::RegularUi, SMALLER_FONT_SIZE, Color::WHITE,
-                             String::from("\nMakes you smart. For all those logic puzzles \
-                                           the ancients left for you to solve.\n"))
-                    ],
                 }
             },
 
@@ -386,7 +377,6 @@ impl LocalizableString {
                         StatIncrease::Arm => String::from("+2 to Arm"),
                         StatIncrease::Leg => String::from("+2 to Leg"),
                         StatIncrease::Finger => String::from("+2 to Finger"),
-                        StatIncrease::Brain => String::from("+2 to Brain"),
                     })
                 ],
             },

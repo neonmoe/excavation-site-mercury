@@ -44,8 +44,8 @@
 //! Final day todos:
 //! - ~~GitHub Actions~~
 //! - ~~Keyboard controls for everything~~
+//! - ~~Remove Brain, it isn't used~~
 //! - Inherent level ups: Leg from walking, Arm from fighting, Finger from unlocks
-//! - Remove Brain, it isn't used
 //! - Class choice UI (different sets of starting stats)
 //! - Leaderboard for comparing treasure scores
 //!
@@ -416,7 +416,7 @@ pub fn main() {
 
         // Draw the fighter selection HUD
         if let Some(selected_fighter) = selected_fighter.and_then(|id| dungeon.get_fighter(id)) {
-            let background_rect = Rect::new(width as i32 - 310, height as i32 - 20 - 16 * 12 - 150, 300, 150);
+            let background_rect = Rect::new(width as i32 - 310, height as i32 - 20 - 16 * 12 - 135, 300, 125);
             canvas.set_draw_color(interface::HUD_BACKGROUND_TRANSPARENT);
             let _ = canvas.fill_rect(background_rect);
 
@@ -435,7 +435,6 @@ pub fn main() {
                 arm: selected_fighter.stats.arm,
                 leg: selected_fighter.stats.leg,
                 finger: selected_fighter.stats.finger,
-                brain: selected_fighter.stats.brain,
             }
             .localize(Language::English);
             canvas.set_clip_rect(background_rect);
@@ -562,9 +561,9 @@ pub fn main() {
             );
 
             use StatIncrease::*;
-            for (i, inc) in [Arm, Leg, Finger, Brain].iter().enumerate() {
+            for (i, inc) in [Arm, Leg, Finger].iter().enumerate() {
                 let padding = 10;
-                let section_width = (background_rect.width() - padding as u32) / 4;
+                let section_width = (background_rect.width() - padding as u32) / 3;
                 let section_rect = Rect::new(
                     background_rect.x + padding + (section_width as i32) * i as i32,
                     background_rect.y + 160,

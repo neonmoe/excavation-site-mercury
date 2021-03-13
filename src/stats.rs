@@ -6,7 +6,6 @@ pub const DUMMY: Stats = Stats {
     arm: 1,
     leg: 1,
     finger: 1,
-    brain: 1,
     flying: false,
     treasure: 0,
 };
@@ -17,7 +16,6 @@ pub const PLAYER: Stats = Stats {
     arm: 10,
     leg: 10,
     finger: 10,
-    brain: 10,
     flying: false,
     treasure: 0,
 };
@@ -28,7 +26,6 @@ pub const SLIME: Stats = Stats {
     arm: 12,
     leg: 8,
     finger: 1,
-    brain: 1,
     flying: false,
     treasure: 0,
 };
@@ -39,7 +36,6 @@ pub const ROACH: Stats = Stats {
     arm: 10,
     leg: 13,
     finger: 8,
-    brain: 4,
     flying: false,
     treasure: 0,
 };
@@ -50,7 +46,6 @@ pub const ROCKMAN: Stats = Stats {
     arm: 10,
     leg: 14,
     finger: 5,
-    brain: 9,
     flying: false,
     treasure: 0,
 };
@@ -61,7 +56,6 @@ pub const SENTIENT_METAL: Stats = Stats {
     arm: 16,
     leg: 15,
     finger: 1,
-    brain: 12,
     flying: true,
     treasure: 6,
 };
@@ -71,7 +65,6 @@ pub enum StatIncrease {
     Arm,
     Leg,
     Finger,
-    Brain,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -88,9 +81,6 @@ pub struct Stats {
     /// The nimbleness of the creature's lockpicking and
     /// pickpocketing.
     pub finger: i32,
-    /// The smarts and mental power of the creature, for use in
-    /// operating machines and seeing through illusions.
-    pub brain: i32,
     /// True for creatures floating in air, and those who have
     /// acquired a flying apparatus.
     pub flying: bool,
@@ -104,7 +94,6 @@ impl Stats {
             StatIncrease::Arm => self.arm += 2,
             StatIncrease::Leg => self.leg += 2,
             StatIncrease::Finger => self.finger += 2,
-            StatIncrease::Brain => self.brain += 2,
         }
     }
 }
