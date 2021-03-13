@@ -1,4 +1,4 @@
-use crate::{Language, LocalizableString, TextPainter};
+use crate::{Font, Language, LocalizableString, Text, TextPainter};
 use fontdue::layout::{HorizontalAlign, LayoutSettings, VerticalAlign};
 use sdl2::pixels::Color;
 use sdl2::rect::{Point, Rect};
@@ -18,6 +18,7 @@ pub const HEALTH_LOW: Color = Color::RGB(0xCC, 0x33, 0x22);
 pub const HEALTH_MEDIUM: Color = Color::RGB(0xEE, 0xAA, 0x22);
 pub const HEALTH_HIGH: Color = Color::RGB(0x66, 0xCC, 0x33);
 pub const SCREEN_FADE_COLOR: Color = Color::RGBA(0x33, 0x33, 0x33, 0xBB);
+pub const HOTKEY_TIP: Color = Color::RGBA(0xDD, 0xDD, 0xDD, 0xFF);
 
 pub struct UserInterface {
     pub mouse_position: Point,
@@ -26,6 +27,8 @@ pub struct UserInterface {
     pub mouse_right_pressed: bool,
     pub mouse_right_released: bool,
     pub hovering: bool,
+    pub button_count: usize,
+    pub pressed_buttons: [bool; 9],
 }
 
 impl UserInterface {
@@ -37,7 +40,17 @@ impl UserInterface {
             mouse_right_pressed: false,
             mouse_right_released: false,
             hovering: false,
+            button_count: 0,
+            pressed_buttons: [false; 9],
         }
+    }
+
+    pub fn reset_for_new_frame(&mut self) {
+        self.mouse_left_released = false;
+        self.mouse_right_released = false;
+        self.hovering = false;
+        self.button_count = 0;
+        self.pressed_buttons = [false; 9];
     }
 
     pub fn button<RT: RenderTarget>(
@@ -77,16 +90,27 @@ impl UserInterface {
             ..LayoutSettings::default()
         };
         let mut texts = text.localize(Language::English);
+
+        self.button_count += 1;
+        let hotkey_pressed = if self.button_count < 10 {
+            let hotkey_tip = Text(Font::RegularUi, 14.0, HOTKEY_TIP, format!("[{}] ", self.button_count));
+            texts.insert(0, hotkey_tip);
+            self.pressed_buttons[self.button_count - 1]
+        } else {
+            false
+        };
+
         if !enabled {
             for text in &mut texts {
                 text.2 = Color::RGB(text.2.r / 2, text.2.g / 2, text.2.b / 2);
             }
         }
+
         canvas.set_clip_rect(rect);
         text_painter.draw_text(canvas, &layout, &texts);
         canvas.set_clip_rect(None);
 
-        enabled && hovering && self.mouse_left_released
+        enabled && (hotkey_pressed || (hovering && self.mouse_left_released))
     }
 
     pub fn text_box<RT: RenderTarget>(

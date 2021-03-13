@@ -120,7 +120,7 @@ pub fn main() {
         .unwrap();
 
     let mut show_debug = false;
-    let mut selected_fighter = None;
+    let mut selected_fighter: Option<usize> = None;
     let mut ui = UserInterface::new();
 
     let normal_cursor = Cursor::from_system(SystemCursor::Arrow).unwrap();
@@ -140,17 +140,19 @@ pub fn main() {
             0.01667
         };
 
-        ui.mouse_left_released = false;
-        ui.mouse_right_released = false;
-        ui.hovering = false;
+        let (width, height) = canvas.output_size().unwrap();
+        let on_screen_fighters = dungeon.get_selectable_fighter_ids();
+        if let Some(currently_selected) = selected_fighter {
+            if !on_screen_fighters.contains(&currently_selected) {
+                selected_fighter = None;
+            }
+        }
+
+        ui.reset_for_new_frame();
 
         for event in event_pump.poll_iter() {
             match event {
-                Event::Quit { .. }
-                | Event::KeyDown {
-                    keycode: Some(Keycode::Escape),
-                    ..
-                } => break 'running,
+                Event::Quit { .. } => break 'running,
 
                 Event::MouseButtonDown { mouse_btn, .. } => match mouse_btn {
                     MouseButton::Left => ui.mouse_left_pressed = true,
@@ -224,6 +226,24 @@ pub fn main() {
                 }
 
                 Event::KeyDown {
+                    keycode: Some(Keycode::Tab),
+                    ..
+                } => {
+                    if let Some(selected_index) =
+                        selected_fighter.and_then(|id| on_screen_fighters.iter().position(|id_| *id_ == id))
+                    {
+                        if selected_index + 1 >= on_screen_fighters.len() {
+                            selected_fighter = None;
+                        } else {
+                            let new_index = selected_index + 1;
+                            selected_fighter = Some(on_screen_fighters[new_index]);
+                        }
+                    } else {
+                        selected_fighter = Some(on_screen_fighters[0]);
+                    }
+                }
+
+                Event::KeyDown {
                     keycode: Some(keycode), ..
                 } => {
                     let event = match keycode {
@@ -233,8 +253,8 @@ pub fn main() {
                         Keycode::D | Keycode::L | Keycode::Right => Some(DungeonEvent::MoveRight),
                         _ => None,
                     };
-                    if dungeon.can_run_events() {
-                        if let Some(event) = event {
+                    if let Some(event) = event {
+                        if dungeon.can_run_events() {
                             dungeon.run_event(event);
 
                             let player = dungeon.player();
@@ -242,6 +262,19 @@ pub fn main() {
                             let level = dungeon.level_mut();
                             level.line_of_sight_x = x;
                             level.line_of_sight_y = y;
+                        }
+                    } else {
+                        match keycode {
+                            Keycode::Num1 => ui.pressed_buttons[0] = true,
+                            Keycode::Num2 => ui.pressed_buttons[1] = true,
+                            Keycode::Num3 => ui.pressed_buttons[2] = true,
+                            Keycode::Num4 => ui.pressed_buttons[3] = true,
+                            Keycode::Num5 => ui.pressed_buttons[4] = true,
+                            Keycode::Num6 => ui.pressed_buttons[5] = true,
+                            Keycode::Num7 => ui.pressed_buttons[6] = true,
+                            Keycode::Num8 => ui.pressed_buttons[7] = true,
+                            Keycode::Num9 => ui.pressed_buttons[8] = true,
+                            _ => {}
                         }
                     }
                 }
@@ -274,7 +307,6 @@ pub fn main() {
         if let Some(new_position) = dungeon.level().room_center_in_pixel_space(dungeon.player().position()) {
             camera_position = new_position;
         }
-        let (width, height) = canvas.output_size().unwrap();
         let camera_target_x = camera_position.x - width as i32 / 2;
         let camera_target_y = camera_position.y - (height as i32 - 150) / 2;
         if dungeon.level_changed() {

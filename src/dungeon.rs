@@ -300,6 +300,20 @@ impl Dungeon {
         }
     }
 
+    pub fn get_selectable_fighter_ids(&self) -> Vec<usize> {
+        if let Some(rect) = self.level().room_at_position(self.player().position()) {
+            let mut result = Vec::with_capacity(self.state.fighters.len());
+            for fighter in &self.state.fighters {
+                if rect.contains_point(fighter.position()) {
+                    result.push(fighter.id);
+                }
+            }
+            result
+        } else {
+            vec![0]
+        }
+    }
+
     pub fn level_changed(&self) -> bool {
         self.state.level_changed
     }

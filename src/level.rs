@@ -471,6 +471,10 @@ impl Level {
         None
     }
 
+    pub fn room_at_position(&self, point: Point) -> Option<Rect> {
+        self.rooms.iter().find(|room| room.contains_point(point)).map(|r| *r)
+    }
+
     pub fn open_door(&mut self, x: i32, y: i32) {
         if x >= 0 && x < LEVEL_WIDTH as i32 && y >= 0 && y < LEVEL_HEIGHT as i32 {
             match self.terrain[x as usize + y as usize * LEVEL_WIDTH] {
