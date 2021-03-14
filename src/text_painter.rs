@@ -10,6 +10,7 @@ pub struct Text(pub Font, pub f32, pub Color, pub String);
 #[derive(Clone, Copy, Debug)]
 pub enum Font {
     RegularUi,
+    BoldUi,
     #[doc(hidden)]
     Count,
 }
@@ -25,7 +26,9 @@ impl TextPainter<'_> {
         let font_texture = FontTexture::new(&texture_creator)?;
         let font = include_bytes!("fonts/recursive/Recursive-Regular-stripped.ttf") as &[u8];
         let regular_ui = FontdueFont::from_bytes(font, FontSettings::default()).unwrap();
-        let fonts = [regular_ui];
+        let font = include_bytes!("fonts/recursive/Recursive-Bold-stripped.ttf") as &[u8];
+        let bold_ui = FontdueFont::from_bytes(font, FontSettings::default()).unwrap();
+        let fonts = [regular_ui, bold_ui];
         let layout = Layout::new(CoordinateSystem::PositiveYDown);
 
         Ok(TextPainter {

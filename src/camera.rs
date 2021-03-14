@@ -1,3 +1,5 @@
+use crate::move_towards;
+
 pub struct Camera {
     pub x: i32,
     pub y: i32,
@@ -9,16 +11,6 @@ impl Camera {
     }
 
     pub fn update(&mut self, delta_seconds: f32, target_x: i32, target_y: i32) {
-        let move_towards = |value: i32, target: i32, speed: i32| {
-            let direction_towards_value = (target - value).signum();
-            let new_value = value + speed * direction_towards_value;
-            if direction_towards_value != (target - new_value).signum() {
-                // If the sign changes, this step would "shoot past", so just return the target.
-                target
-            } else {
-                new_value
-            }
-        };
         let dx = (target_x - self.x) as f32;
         let dy = (target_y - self.y) as f32;
         let camera_distance = (dx * dx + dy * dy).sqrt();

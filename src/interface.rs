@@ -5,6 +5,7 @@ use sdl2::rect::{Point, Rect};
 use sdl2::render::{Canvas, RenderTarget};
 
 pub const DEBUG_TEXT: Color = Color::RGB(0xFF, 0xFF, 0x88);
+pub const WINDOW_BACKGROUND: Color = Color::RGB(0x33, 0x33, 0x33);
 pub const HUD_BACKGROUND_TRANSPARENT: Color = Color::RGBA(0x44, 0x44, 0x44, 0xAA);
 pub const HUD_BACKGROUND_OPAQUE: Color = Color::RGB(0x44, 0x44, 0x44);
 pub const HUD_BORDER: Color = Color::RGB(0x77, 0x88, 0x88);
@@ -19,6 +20,11 @@ pub const HEALTH_MEDIUM: Color = Color::RGB(0xEE, 0xAA, 0x22);
 pub const HEALTH_HIGH: Color = Color::RGB(0x66, 0xCC, 0x33);
 pub const SCREEN_FADE_COLOR: Color = Color::RGBA(0x33, 0x33, 0x33, 0xBB);
 pub const HOTKEY_TIP: Color = Color::RGBA(0xDD, 0xDD, 0xDD, 0xFF);
+pub const ROW_BACKGROUND: Color = Color::RGB(0x44, 0x44, 0x44);
+pub const ROW_BACKGROUND_ALT: Color = Color::RGB(0x3A, 0x3A, 0x3A);
+pub const ROW_BACKGROUND_HIGHLIGHT: Color = Color::RGB(0x3A, 0x55, 0x3A);
+pub const SCROLL_BACKGROUND: Color = Color::RGB(0x3A, 0x3A, 0x3A);
+pub const SCROLL_HANDLE: Color = Color::RGB(0x55, 0x55, 0x55);
 
 pub struct UserInterface {
     pub mouse_position: Point,
@@ -29,6 +35,7 @@ pub struct UserInterface {
     pub hovering: bool,
     pub button_count: usize,
     pub pressed_buttons: [bool; 9],
+    pub scroll: i32,
 }
 
 impl UserInterface {
@@ -42,6 +49,7 @@ impl UserInterface {
             hovering: false,
             button_count: 0,
             pressed_buttons: [false; 9],
+            scroll: 0,
         }
     }
 
@@ -51,6 +59,7 @@ impl UserInterface {
         self.hovering = false;
         self.button_count = 0;
         self.pressed_buttons = [false; 9];
+        self.scroll = 0;
     }
 
     pub fn button<RT: RenderTarget>(
@@ -141,5 +150,21 @@ impl UserInterface {
 
         canvas.set_draw_color(HUD_BORDER);
         let _ = canvas.draw_rect(rect);
+    }
+
+    pub fn text<RT: RenderTarget>(
+        &self,
+        canvas: &mut Canvas<RT>,
+        text_painter: &mut TextPainter,
+        text: &LocalizableString,
+        x: i32,
+        y: i32,
+    ) {
+        let layout = LayoutSettings {
+            x: x as f32,
+            y: y as f32,
+            ..LayoutSettings::default()
+        };
+        text_painter.draw_text(canvas, &layout, &text.localize(Language::English));
     }
 }

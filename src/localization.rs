@@ -100,6 +100,7 @@ pub enum LocalizableString {
     Victory,
 
     RestartButton,
+    QuitButton,
     SubmitToLeaderboardsButton,
     LevelUpMessage(u32),
     StatInfo(StatIncrease),
@@ -109,6 +110,15 @@ pub enum LocalizableString {
         stat: StatIncrease,
         name: Name,
     },
+
+    LeaderboardsHeader,
+    LeaderboardsTitleName,
+    LeaderboardsTitleTreasure,
+    LeaderboardsTitleRounds,
+    LeaderboardsName([char; 3]),
+    LeaderboardsTreasure(i32),
+    LeaderboardsRounds(Option<u64>),
+    LeaderboardsSortByButton,
 }
 
 impl LocalizableString {
@@ -319,7 +329,13 @@ impl LocalizableString {
             LocalizableString::RestartButton => match language {
                 Language::Debug => unreachable!(),
                 Language::English => vec![
-                    Text(Font::RegularUi, NORMAL_FONT_SIZE, Color::WHITE, String::from("Start over"))
+                    Text(Font::RegularUi, NORMAL_FONT_SIZE, Color::WHITE, String::from("New run"))
+                ],
+            },
+            LocalizableString::QuitButton => match language {
+                Language::Debug => unreachable!(),
+                Language::English => vec![
+                    Text(Font::RegularUi, NORMAL_FONT_SIZE, Color::WHITE, String::from("Quit"))
                 ],
             },
             LocalizableString::SubmitToLeaderboardsButton => match language {
@@ -403,6 +419,58 @@ impl LocalizableString {
                             name.translated_to(language),
                         ),
                     })
+                ],
+            },
+
+            LocalizableString::LeaderboardsHeader => match language {
+                Language::Debug => unreachable!(),
+                Language::English => vec![
+                    Text(Font::BoldUi, 24.0, Color::WHITE, String::from("Leaderboards"))
+                ],
+            },
+
+            LocalizableString::LeaderboardsTitleName => match language {
+                Language::Debug => unreachable!(),
+                Language::English => vec![
+                    Text(Font::BoldUi, 18.0, Color::WHITE, String::from("Name"))
+                ],
+            },
+            LocalizableString::LeaderboardsTitleTreasure => match language {
+                Language::Debug => unreachable!(),
+                Language::English => vec![
+                    Text(Font::BoldUi, 18.0, Color::WHITE, String::from("Treasure collected"))
+                ],
+            },
+            LocalizableString::LeaderboardsTitleRounds => match language {
+                Language::Debug => unreachable!(),
+                Language::English => vec![
+                    Text(Font::BoldUi, 18.0, Color::WHITE, String::from("Finish time (in-world)"))
+                ],
+            },
+
+            LocalizableString::LeaderboardsName(chars) => match language {
+                _ => vec![Text(Font::RegularUi, 18.0, Color::WHITE, format!("{}{}{}", chars[0], chars[1], chars[2]))],
+            },
+            LocalizableString::LeaderboardsTreasure(amount) => match language {
+                _ => vec![Text(Font::RegularUi, 18.0, Color::WHITE, format!("{}", amount))],
+            },
+            LocalizableString::LeaderboardsRounds(rounds) => match language {
+                Language::Debug => unreachable!(),
+                Language::English => vec![
+                    if let Some(rounds) = rounds {
+                        Text(Font::RegularUi, 18.0, Color::WHITE, format!(
+                            "{:02}:{:02}:{:02}", rounds / 60 / 60, rounds / 60, rounds
+                        ))
+                    } else {
+                        Text(Font::RegularUi, 18.0, Color::WHITE, String::from("Died."))
+                    }
+                ],
+            },
+
+            LocalizableString::LeaderboardsSortByButton => match language {
+                Language::Debug => unreachable!(),
+                Language::English => vec![
+                    Text(Font::RegularUi, SMALLER_FONT_SIZE, Color::WHITE, String::from("Sort by"))
                 ],
             },
         }
