@@ -463,7 +463,7 @@ impl LocalizableString {
             LocalizableString::LeaderboardsEmpty => match language {
                 Language::Debug => unreachable!(),
                 Language::English => vec![
-                    Text(Font::RegularUi, 16.0, Color::WHITE, String::from("The leaderboards are empty."))
+                    Text(Font::RegularUi, 16.0, Color::WHITE, String::from("The leaderboards are empty.\nThe server is probably down."))
                 ],
             },
 

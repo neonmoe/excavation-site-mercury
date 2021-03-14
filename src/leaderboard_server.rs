@@ -1,15 +1,17 @@
 use crate::{leaderboard, Dungeon, LeaderboardEntry};
 use bincode::config::DefaultOptions;
 use bincode::Options;
-use std::io::{ErrorKind, Read, Write};
+use std::fs::OpenOptions;
+use std::io::{BufReader, BufWriter, ErrorKind, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::RwLock;
 
 pub const UPLOAD_MAGIC_STRING: &str = "BEGIN THE MINING LOG";
 pub const DOWNLOAD_MAGIC_STRING: &str = "GIVE ME LEADERBOARDS";
+pub const ENTRY_FILE: &str = "mercury-leaderboards.csv";
 
 lazy_static::lazy_static! {
-    static ref LEADERBOARD_ENTRIES: RwLock<Vec<u8>> = RwLock::new(Options::serialize(DefaultOptions::new(), &Vec::<LeaderboardEntry>::new()).unwrap());
+    static ref LEADERBOARD_ENTRIES: RwLock<Vec<u8>> = RwLock::new(Options::serialize(DefaultOptions::new(), &entry_file_read()).unwrap());
 }
 
 /// This starts up a TCP server on 0.0.0.0:5852, listening for
@@ -21,7 +23,7 @@ lazy_static::lazy_static! {
 /// discarded.
 ///
 /// The final statistics are stored in the working directory, in a
-/// file called `mercury-leaderboards.bin`.
+/// file called `mercury-leaderboards.csv`.
 pub fn serve() {
     log::info!("Starting up leaderboard server on 0.0.0.0:8582...");
     let listener = TcpListener::bind("0.0.0.0:8582").unwrap();
@@ -117,7 +119,6 @@ fn handle_upload(mut stream: TcpStream) {
                 dungeon.round()
             );
 
-            // TODO: Check that the run is either game over or finished
             let new_entry = LeaderboardEntry {
                 name,
                 treasure: dungeon.treasure(),
@@ -138,6 +139,7 @@ fn handle_upload(mut stream: TcpStream) {
                     let mut entries: Vec<LeaderboardEntry> =
                         Options::deserialize(DefaultOptions::new(), &entries_bytes).unwrap();
                     log::debug!("> Writing: {:?}", new_entry);
+                    entry_file_append(new_entry.clone());
                     entries.push(new_entry);
                     *entries_bytes = Options::serialize(DefaultOptions::new(), &entries).unwrap();
                 }
@@ -155,4 +157,53 @@ fn handle_upload(mut stream: TcpStream) {
             return;
         }
     }
+}
+
+pub fn entry_file_read() -> Vec<LeaderboardEntry> {
+    match OpenOptions::new().read(true).open(ENTRY_FILE) {
+        Ok(file) => {
+            let mut reader = BufReader::new(file);
+            let mut contents = String::new();
+            reader.read_to_string(&mut contents).unwrap();
+            let mut result = Vec::new();
+            for line in contents.lines() {
+                let mut parts = line.split(',');
+                let mut name = parts.next().unwrap().chars();
+                let treasure = parts.next().unwrap();
+                let rounds = parts.next().unwrap();
+                let size = parts.next().unwrap();
+                result.push(LeaderboardEntry {
+                    name: [name.next().unwrap(), name.next().unwrap(), name.next().unwrap()],
+                    treasure: treasure.parse::<i32>().unwrap(),
+                    rounds: rounds.parse::<u64>().ok(),
+                    size: size.parse::<usize>().unwrap(),
+                });
+            }
+            result
+        }
+        Err(_) => vec![],
+    }
+}
+
+pub fn entry_file_append(entry: LeaderboardEntry) {
+    let file = OpenOptions::new().append(true).create(true).open(ENTRY_FILE).unwrap();
+    let mut writer = BufWriter::new(file);
+    writer
+        .write_all(
+            format!(
+                "{}{}{},{},{},{}\n",
+                entry.name[0],
+                entry.name[1],
+                entry.name[2],
+                entry.treasure,
+                if let Some(rounds) = entry.rounds {
+                    format!("{}", rounds)
+                } else {
+                    String::from("DEAD")
+                },
+                entry.size
+            )
+            .as_bytes(),
+        )
+        .unwrap();
 }
