@@ -46,8 +46,8 @@
 //! - ~~Keyboard controls for everything~~
 //! - ~~Remove Brain, it isn't used~~
 //! - ~~Inherent level ups: Leg from walking, Arm from fighting, Finger from unlocks~~
-//! - Class choice UI (different sets of starting stats)
-//! - Leaderboard for comparing treasure scores
+//! - ~~Leaderboard for comparing treasure scores~~
+//! - Class choice UI (different sets of starting stats) (didn't have time, rip)
 //!
 //! And here's the features I had planned but didn't have the time to
 //! implement:
