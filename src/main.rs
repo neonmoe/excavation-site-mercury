@@ -99,7 +99,8 @@ pub use enemy_ai::EnemyAi;
 pub mod interface;
 pub use interface::UserInterface;
 mod leaderboard;
-use leaderboard::Leaderboard;
+pub use leaderboard::{Leaderboard, LeaderboardEntry};
+mod leaderboard_server;
 
 static QUICK_SAVE_FILE: &str = "excavation-site-mercury-quicksave.bin";
 
@@ -113,6 +114,12 @@ enum Screen {
 pub fn main() {
     #[cfg(feature = "env_logger")]
     env_logger::init();
+
+    if std::env::args().find(|s| s == "--leaderboard-server").is_some() {
+        leaderboard_server::serve();
+        return;
+    }
+
     let initialization_start = Instant::now();
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
@@ -205,6 +212,10 @@ pub fn main() {
                     };
                 }
 
+                Event::TextInput { text, .. } => {
+                    ui.text_input = Some(text);
+                }
+
                 Event::KeyDown {
                     keycode: Some(Keycode::F5),
                     ..
@@ -273,7 +284,7 @@ pub fn main() {
 
                 Event::KeyDown {
                     keycode: Some(keycode), ..
-                } => {
+                } if screen == Screen::InGame => {
                     let event = match keycode {
                         Keycode::W | Keycode::K | Keycode::Up => Some(DungeonEvent::MoveUp),
                         Keycode::S | Keycode::J | Keycode::Down => Some(DungeonEvent::MoveDown),
@@ -282,7 +293,7 @@ pub fn main() {
                         _ => None,
                     };
                     if let Some(event) = event {
-                        if screen == Screen::InGame && dungeon.can_run_events() {
+                        if dungeon.can_run_events() {
                             dungeon.run_event(event);
 
                             let player = dungeon.player();
@@ -291,21 +302,23 @@ pub fn main() {
                             level.line_of_sight_x = x;
                             level.line_of_sight_y = y;
                         }
-                    } else {
-                        match keycode {
-                            Keycode::Num1 => ui.pressed_buttons[0] = true,
-                            Keycode::Num2 => ui.pressed_buttons[1] = true,
-                            Keycode::Num3 => ui.pressed_buttons[2] = true,
-                            Keycode::Num4 => ui.pressed_buttons[3] = true,
-                            Keycode::Num5 => ui.pressed_buttons[4] = true,
-                            Keycode::Num6 => ui.pressed_buttons[5] = true,
-                            Keycode::Num7 => ui.pressed_buttons[6] = true,
-                            Keycode::Num8 => ui.pressed_buttons[7] = true,
-                            Keycode::Num9 => ui.pressed_buttons[8] = true,
-                            _ => {}
-                        }
                     }
                 }
+
+                Event::KeyUp {
+                    keycode: Some(keycode), ..
+                } => match keycode {
+                    Keycode::Num1 => ui.released_buttons[0] = true,
+                    Keycode::Num2 => ui.released_buttons[1] = true,
+                    Keycode::Num3 => ui.released_buttons[2] = true,
+                    Keycode::Num4 => ui.released_buttons[3] = true,
+                    Keycode::Num5 => ui.released_buttons[4] = true,
+                    Keycode::Num6 => ui.released_buttons[5] = true,
+                    Keycode::Num7 => ui.released_buttons[6] = true,
+                    Keycode::Num8 => ui.released_buttons[7] = true,
+                    Keycode::Num9 => ui.released_buttons[8] = true,
+                    _ => {}
+                },
                 _ => {}
             }
         }
@@ -439,7 +452,7 @@ pub fn main() {
                         Font::RegularUi,
                         26.0,
                         Color::WHITE,
-                        format!("{}", dungeon.player().stats.treasure),
+                        format!("{}", dungeon.treasure()),
                     )];
                     canvas.set_clip_rect(mineral_counter_bg);
                     text_painter.draw_text(&mut canvas, &layout, text);
@@ -525,6 +538,7 @@ pub fn main() {
                         true,
                     ) {
                         screen = Screen::Leaderboard;
+                        leaderboard.submit_run(&dungeon);
                     }
                 }
 
@@ -571,6 +585,7 @@ pub fn main() {
                         true,
                     ) {
                         screen = Screen::Leaderboard;
+                        leaderboard.submit_run(&dungeon);
                     }
                 }
 

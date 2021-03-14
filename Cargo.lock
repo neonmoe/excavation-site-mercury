@@ -142,6 +142,7 @@ dependencies = [
  "env_logger",
  "fontdue",
  "fontdue-sdl2",
+ "lazy_static",
  "log",
  "png",
  "rand_core",

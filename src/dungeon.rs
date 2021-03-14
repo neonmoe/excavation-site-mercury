@@ -1,6 +1,8 @@
 // TODO: DungeonEvents (and DungeonSaves) should be versioned.
 
 use crate::{EnemyAi, Fighter, FighterSpawn, GameLog, Level, StatIncrease, Terrain};
+use bincode::config::DefaultOptions;
+use bincode::Options;
 use rand_core::SeedableRng;
 use rand_pcg::Pcg32;
 use serde::{Deserialize, Serialize};
@@ -172,7 +174,7 @@ impl Dungeon {
     }
 
     pub fn from_bytes(bytes: &[u8]) -> Result<Dungeon, bincode::Error> {
-        let save: DungeonSave = bincode::deserialize(bytes)?;
+        let save: DungeonSave = Options::deserialize(DefaultOptions::new(), bytes)?;
         let mut dungeon = Dungeon {
             seed: save.seed,
             events: Vec::new(),
@@ -186,11 +188,14 @@ impl Dungeon {
     }
 
     pub fn to_bytes(&self) -> Result<Vec<u8>, bincode::Error> {
-        bincode::serialize(&DungeonSave {
-            game_version: format!("\r\nexcavation-site-mercury version: {}\r\n", env!("CARGO_PKG_VERSION")),
-            seed: self.seed,
-            events: self.events.clone(),
-        })
+        Options::serialize(
+            DefaultOptions::new(),
+            &DungeonSave {
+                game_version: format!("\r\nexcavation-site-mercury version: {}\r\n", env!("CARGO_PKG_VERSION")),
+                seed: self.seed,
+                events: self.events.clone(),
+            },
+        )
     }
 
     pub fn run_event(&mut self, event: DungeonEvent) {
@@ -289,6 +294,10 @@ impl Dungeon {
 
     pub fn round(&self) -> u64 {
         self.state.round
+    }
+
+    pub fn treasure(&self) -> i32 {
+        self.player().stats.treasure
     }
 
     pub fn get_fighter(&self, id: usize) -> Option<&Fighter> {

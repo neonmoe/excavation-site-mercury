@@ -34,8 +34,9 @@ pub struct UserInterface {
     pub mouse_right_released: bool,
     pub hovering: bool,
     pub button_count: usize,
-    pub pressed_buttons: [bool; 9],
+    pub released_buttons: [bool; 9],
     pub scroll: i32,
+    pub text_input: Option<String>,
 }
 
 impl UserInterface {
@@ -48,8 +49,9 @@ impl UserInterface {
             mouse_right_released: false,
             hovering: false,
             button_count: 0,
-            pressed_buttons: [false; 9],
+            released_buttons: [false; 9],
             scroll: 0,
+            text_input: None,
         }
     }
 
@@ -58,8 +60,9 @@ impl UserInterface {
         self.mouse_right_released = false;
         self.hovering = false;
         self.button_count = 0;
-        self.pressed_buttons = [false; 9];
+        self.released_buttons = [false; 9];
         self.scroll = 0;
+        self.text_input = None;
     }
 
     pub fn button<RT: RenderTarget>(
@@ -92,7 +95,7 @@ impl UserInterface {
         let layout = LayoutSettings {
             x: (rect.x + 4) as f32,
             y: (rect.y + 4) as f32,
-            max_width: Some((rect.width() - 8) as f32),
+            max_width: Some((rect.width() - 8 - 12) as f32),
             max_height: Some((rect.height() - 8) as f32),
             vertical_align: VerticalAlign::Middle,
             horizontal_align: HorizontalAlign::Center,
@@ -104,7 +107,7 @@ impl UserInterface {
         let hotkey_pressed = if self.button_count < 10 {
             let hotkey_tip = Text(Font::RegularUi, 14.0, HOTKEY_TIP, format!("[{}] ", self.button_count));
             texts.insert(0, hotkey_tip);
-            self.pressed_buttons[self.button_count - 1]
+            self.released_buttons[self.button_count - 1]
         } else {
             false
         };

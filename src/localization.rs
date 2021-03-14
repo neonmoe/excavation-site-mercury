@@ -56,6 +56,8 @@ impl Name {
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum LocalizableString {
+    Character(char, f32, Color),
+
     SomeoneAttackedSomeone {
         attacker: Name,
         defender: Name,
@@ -99,6 +101,9 @@ pub enum LocalizableString {
     },
     Victory,
 
+    BigConfirmButton,
+    EraseButton,
+    NameInputInfo,
     RestartButton,
     QuitButton,
     SubmitToLeaderboardsButton,
@@ -112,6 +117,7 @@ pub enum LocalizableString {
     },
 
     LeaderboardsHeader,
+    LeaderboardsEmpty,
     LeaderboardsTitleName,
     LeaderboardsTitleTreasure,
     LeaderboardsTitleRounds,
@@ -123,7 +129,9 @@ pub enum LocalizableString {
 
 impl LocalizableString {
     pub fn localize(&self, language: Language) -> Vec<Text> {
-        if language == Language::Debug {
+        if let LocalizableString::Character(c, size, color) = self {
+            return vec![Text(Font::RegularUi, *size, *color, format!("{}", c))];
+        } else if language == Language::Debug {
             return vec![Text(Font::RegularUi, 12.0, Color::WHITE, format!("{:#?}", self))];
         }
 
@@ -132,6 +140,8 @@ impl LocalizableString {
         const BIGGER_FONT_SIZE: f32 = 18.0;
         const COMMENT_COLOR: Color = Color::RGB(0x99, 0x99, 0x99);
         match self {
+            LocalizableString::Character(_, _, _) => unreachable!(),
+
             LocalizableString::SomeoneAttackedSomeone {
                 attacker,
                 defender,
@@ -326,6 +336,27 @@ impl LocalizableString {
                 ],
             },
 
+            LocalizableString::BigConfirmButton => match language {
+                Language::Debug => unreachable!(),
+                Language::English => vec![
+                    Text(Font::BoldUi, BIGGER_FONT_SIZE, Color::WHITE, String::from("Confirm"))
+                ],
+            },
+            LocalizableString::EraseButton => match language {
+                Language::Debug => unreachable!(),
+                Language::English => vec![
+                    Text(Font::RegularUi, NORMAL_FONT_SIZE, Color::WHITE, String::from("Erase"))
+                ],
+            },
+            LocalizableString::NameInputInfo => match language {
+                Language::Debug => unreachable!(),
+                Language::English => vec![
+                    Text(Font::RegularUi, BIGGER_FONT_SIZE, Color::WHITE, String::from(
+                        "Enter a name or tag to represent you on the leaderboards. \
+                         Only ASCII characters (A-Z) and digits (0-9) are accepted, sorry about that.\n"
+                    ))
+                ],
+            },
             LocalizableString::RestartButton => match language {
                 Language::Debug => unreachable!(),
                 Language::English => vec![
@@ -426,6 +457,13 @@ impl LocalizableString {
                 Language::Debug => unreachable!(),
                 Language::English => vec![
                     Text(Font::BoldUi, 24.0, Color::WHITE, String::from("Leaderboards"))
+                ],
+            },
+
+            LocalizableString::LeaderboardsEmpty => match language {
+                Language::Debug => unreachable!(),
+                Language::English => vec![
+                    Text(Font::RegularUi, 16.0, Color::WHITE, String::from("The leaderboards are empty."))
                 ],
             },
 
